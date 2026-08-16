@@ -1,3 +1,4 @@
-from . import OnlineManager
+from . import Client
 
-OnlineManager.req_test()
+client = Client.ClientSide()
+client.send_message()
