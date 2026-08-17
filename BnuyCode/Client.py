@@ -24,7 +24,7 @@ class ClientSide():
             msg = input("Enter what youd like to send: ")
             self.data["content"] = msg
 
-            resp = requests.post(ip, json=data)
+            resp = requests.post(ip, json=self.data)
 
             if resp.status_code == 200:
                 print(f"Successfully sent!")
