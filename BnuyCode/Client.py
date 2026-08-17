@@ -27,5 +27,5 @@ class ClientSide():
             resp = requests.post(ip, json=data)
 
             if resp.status_code == 200:
-                print(f"Successfully sent to {self.data.get("receiver)}!")
+                print(f"Successfully sent!")
 
