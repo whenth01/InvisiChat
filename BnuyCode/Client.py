@@ -15,7 +15,7 @@ class ClientSide():
 
     def send_message(self):
         while True:
-            if self.dats["receiver"] is None:
+            if self.data["receiver"] is None:
                 ip = f"http://{input("Please enter a TailScale MagicDNS: ")}:8008/message"
                 sender = input("Please enter a sender name: ")
                 self.data["receiver"] = ip 
