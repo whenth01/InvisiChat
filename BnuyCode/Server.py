@@ -16,7 +16,7 @@ def message_receive():
     app = Flask(__name__)
 
     @app.route("/message", methods=["POST"])
-    def send_msg():
+    def get_msg():
         data = request.get_json()
         print(f"""
 Got data:

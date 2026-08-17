@@ -9,7 +9,7 @@ class ClientSide():
         self.msg.start()
 
     def send_message(self):
-        ip = f"http://{input("Please enter a TailScale MagicDNS: ")}0426:/message"
+        ip = f"http://{input("Please enter a TailScale MagicDNS: ")}8008:/message"
         sender = input("Please enter a sender name: ")
         receiver = input("Please enter a receiver name: ")
         message = input("Please enter youe message: ")
