@@ -7,21 +7,25 @@ class ClientSide():
     def __init__(self):
         self.msg = threading.Thread(target=Server.message_receive, daemon=True)
         self.msg.start()
+        self.data = {
+                "receiver": None,
+                "sender": None,
+                "content": None,
+                }
 
     def send_message(self):
-        ip = f"http://{input("Please enter a TailScale MagicDNS: ")}8008:/message"
-        sender = input("Please enter a sender name: ")
-        receiver = input("Please enter a receiver name: ")
-        message = input("Please enter youe message: ")
+        while True:
+            if self.dats["receiver"] is None:
+                ip = f"http://{input("Please enter a TailScale MagicDNS: ")}:8008/message"
+                sender = input("Please enter a sender name: ")
+                self.data["receiver"] = ip 
+                self.data["sender"] = sender
 
-        data = {
-            "receiver": receiver,
-            "sender": sender,
-            "content": message
-            }
+            msg = input("Enter what youd like to send: ")
+            self.data["content"] = msg
 
-        resp = requests.post(ip, json=data)
+            resp = requests.post(ip, json=data)
 
-        if resp.status_code == 200:
-            print("Successfully sent!")
+            if resp.status_code == 200:
+                print(f"Successfully sent to {self.data.get("receiver)}!")
 

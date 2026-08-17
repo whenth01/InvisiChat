@@ -22,7 +22,7 @@ def message_receive():
 Got data:
 {data}
 """)
-        return jsonify({"status": "recieved"}), 200
+        return jsonify({"status": "received"}), 200
     flask.cli.show_server_banner = lambda *a, **k: None
     app.run(host="0.0.0.0", port=8008)
 
