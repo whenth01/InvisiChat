@@ -167,9 +167,12 @@ To continue, please fill these fields
                     return super().keypress(size, key)
                 else: 
                     if len(text_box.get_edit_text()) > 1:
-                        interface.messages.append({interface.main_obj.data["receiver"],
-                                                  username,
-                                                  text_box.get_edit_text(),})
+                        message_dict = {
+                                "receiver": interface.main_obj.data["receiver"],
+                                "sender": username,
+                                "content": text_box.get_edit_text(),
+                                }
+                        interface.messages.append(message_dict)
                         interface.message_list.append(
                             interface.draw_message(username, text_box.get_edit_text())
                             )
