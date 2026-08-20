@@ -159,7 +159,7 @@ To continue, please fill these fields
 
                 if message not in self.message_list:
                     self.message_list.append(message)
-                    self.message_list.set_focus(len(self.message_list))
+                    self.message_list.set_focus(len(self.message_list)-1)
 
         class Page(ui.Frame):
             def keypress(self, size, key):
@@ -167,6 +167,9 @@ To continue, please fill these fields
                     return super().keypress(size, key)
                 else: 
                     if len(text_box.get_edit_text()) > 1:
+                        interface.messages.append(self.main_obj.data["receiver"],
+                                                  username,
+                                                  text_box.get_edit_text(),)
                         interface.message_list.append(
                             interface.draw_message(username, text_box.get_edit_text())
                             )

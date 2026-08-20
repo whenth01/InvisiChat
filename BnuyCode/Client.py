@@ -1,3 +1,4 @@
+import os
 import requests
 import threading
 from . import Server
@@ -29,6 +30,8 @@ class ClientSide():
 
             self.data["content"] = self.ui.chat_menu(self.data.get("sender"))
             try:
+                os.system('cls' if os.name == 'nt' else 'clear')
+                print("Sending message...")
                 self.sending_post = True
                 resp = requests.post(self.data["receiver"], json=self.data)
                 self.sending_post = False
