@@ -26,6 +26,16 @@ class Interface():
 
         self.message_list = ui.SimpleFocusListWalker([])
         self.message_view = ui.ListBox(self.message_list)
+        self.message_ids = set()
+
+    def add_msgs(self, message_dict):
+        sender = message_dict["sender"]
+        content = message_dict["content"]
+        id = message_dict["id"]
+
+        self.message_ids.add(id)
+        self.messages.append(message_dict)
+        self.message_list.append(self.draw_message(sender, content))
 
     def callback(self, data: bytes) -> None:
         message = data.decode()
@@ -40,15 +50,12 @@ class Interface():
 
         if isinstance(message, list):
             for nested_msg in message:
-                sender, content, message_dict = msg_unpack(nested_msg)
-                self.messages.append(message_dict)
-                self.message_list.append(self.draw_message(sender, content))
+                _, _, message_dict = msg_unpack(nested_msg)
+                self.add_msgs(message_dict)
 
         else: 
-            sender, content, message_dict = msg_unpack(message)
-
-            self.messages.append(message_dict)
-            self.message_list.append(self.draw_message(sender, content))
+            _, _, message_dict = msg_unpack(message)
+            self.add_msgs(message_dict)
         if self.loop is not None: self.loop.draw_screen()
 
 
@@ -134,7 +141,7 @@ To continue, please fill these fields
                 "ip": ip.get_edit_text(),
                 "name": name.get_edit_text(),
                 "pass": password.get_edit_text(),
-                }
+                }   
 
     def draw_message(self, sender, content):
         message = ui.Pile([
@@ -155,27 +162,29 @@ To continue, please fill these fields
             for message_metadata in self.messages:
                 sender = message_metadata.get("sender")
                 content = message_metadata.get("content")
-                message = self.draw_message(sender, content)
+                id = message_metadata.get("id")
 
-                if message not in self.message_list:
+                if id not in self.message_ids:
+                    self.message_ids.add(id)
+                    message = self.draw_message(sender, content)
+
                     self.message_list.append(message)
                     self.message_list.set_focus(len(self.message_list)-1)
+
 
         class Page(ui.Frame):
             def keypress(self, size, key):
                 if key != "enter":
                     return super().keypress(size, key)
                 else: 
-                    if len(text_box.get_edit_text()) > 1:
+                    if len(text_box.get_edit_text()) >= 1:
                         message_dict = {
                                 "receiver": interface.main_obj.data["receiver"],
                                 "sender": username,
                                 "content": text_box.get_edit_text(),
+                                "id": interface.main_obj.data["id"]
                                 }
-                        interface.messages.append(message_dict)
-                        interface.message_list.append(
-                            interface.draw_message(username, text_box.get_edit_text())
-                            )
+                        interface.add_msgs(message_dict)
                         raise ui.ExitMainLoop()
 
 

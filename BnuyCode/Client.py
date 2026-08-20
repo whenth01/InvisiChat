@@ -1,4 +1,5 @@
 import os
+import uuid
 import requests
 import threading
 from . import Server
@@ -16,10 +17,14 @@ class ClientSide():
                 "receiver": None,
                 "sender": None,
                 "content": None,
+                "id": None
                 }
 
         self.messages = []
         self.sending_post = False
+
+    def clear_terminal(self):
+        os.system('cls' if os.name == 'nt' else 'clear')
 
     def send_message(self):
         while True:
@@ -28,14 +33,15 @@ class ClientSide():
                 self.data["receiver"] = f"http://{signup_details.get('ip')}:8008/message"
                 self.data["sender"] = signup_details.get("name")
 
+            self.data["id"] = str(uuid.uuid4())
             self.data["content"] = self.ui.chat_menu(self.data.get("sender"))
             try:
-                os.system('cls' if os.name == 'nt' else 'clear')
+                self.clear_terminal()
                 print("Sending message...")
                 self.sending_post = True
                 resp = requests.post(self.data["receiver"], json=self.data)
+                self.clear_terminal()
                 self.sending_post = False
-                self.messages.append(dict(self.data))
 
             except requests.ConnectionError: 
                 self.sending_post = False
