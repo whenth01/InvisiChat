@@ -1,19 +1,26 @@
 from __future__ import annotations
+from . import GoBack
 import sys
 import json
 import time
 import urwid as ui
+
 
 class Interface():
     def __init__(self, main_obj):
         self.main_obj = main_obj
         self.write_fd = None
         self.loop = None
+        self.return_called = False
 
         #### BUTTON SECTION
         self.exit_button = ui.Button("Exit")
+        self.chat_button = ui.Button("Open chat")
+        self.back_button = ui.Button("Back")
 
         ui.connect_signal(self.exit_button, "click", self.stop_program)
+        ui.connect_signal(self.chat_button, "click", self.main_obj.send_msg)
+        ui.connect_signal(self.back_button, "click", self.go_to_mainmenu)
 
         #### COLORS
         self.palette = [
@@ -28,6 +35,9 @@ class Interface():
         self.message_view = ui.ListBox(self.message_list)
         self.message_ids = set()
 
+    def go_to_mainmenu(self, button):
+        self.main_menu()
+
     def add_msgs(self, message_dict):
         sender = message_dict["sender"]
         content = message_dict["content"]
@@ -37,6 +47,7 @@ class Interface():
         self.messages.append(message_dict)
         self.message_list.append(self.draw_message(sender, content))
 
+    #### This is used for getting messages from server.py!!!
     def callback(self, data: bytes) -> None:
         message = data.decode()
         message = json.loads(message)
@@ -109,7 +120,7 @@ To continue, please fill these fields
             ui.Divider("-"),
 
             ui.Text("Please enter a DNS/IP (excluding a port)"),
-            ui.Text("(For the person you'd like to contact.)"),
+            ui.Text("(This is how people can chat to you!)"),
             ip,
 
             ui.Divider("-"),
@@ -141,7 +152,35 @@ To continue, please fill these fields
                 "ip": ip.get_edit_text(),
                 "name": name.get_edit_text(),
                 "pass": password.get_edit_text(),
-                }   
+                }
+
+    def main_menu(self):
+        text_box = ui.Edit(">>> ")
+
+        buttons = ui.Pile([
+            ui.Columns([
+                ui.Text("Exit & Settings"),
+                self.exit_button,
+                ]),
+
+            ui.Divider("-"),
+
+            ui.Columns([
+                ui.Text("Chat stuff) "),
+                self.chat_button,
+                ]),
+
+            ui.Divider("-"),
+            ])
+
+        main = ui.Frame(
+                ui.LineBox(buttons),
+                header=ui.Text("Welcome back to TermChat!:3"),
+                footer=ui.LineBox(ui.Text("Version) V0.0.2")),
+                focus_part=("body"),
+                )
+        while True:
+            self.run_menu(main)
 
     def draw_message(self, sender, content):
         message = ui.Pile([
@@ -154,17 +193,19 @@ To continue, please fill these fields
         return message
 
     def chat_menu(self, username):
+        try: raise ui.ExitMainLoop()
+        except ui.ExitMainLoop: pass
         interface = self
         text_box = ui.Edit(">>> ")
-        
-        def draw_message_list():
 
-            for message_metadata in self.messages:
+        def draw_message_list(receiver):
+
+            for message_metadata in self.messages.get(receiver):
                 sender = message_metadata.get("sender")
                 content = message_metadata.get("content")
                 id = message_metadata.get("id")
 
-                if id not in self.message_ids:
+                if id not in self.message_ids.get(receiver):
                     self.message_ids.add(id)
                     message = self.draw_message(sender, content)
 
@@ -175,6 +216,8 @@ To continue, please fill these fields
         class Page(ui.Frame):
             def keypress(self, size, key):
                 if key != "enter":
+                    return super().keypress(size, key)
+                elif chat_box.get_focus_column() > 0:
                     return super().keypress(size, key)
                 else: 
                     if len(text_box.get_edit_text()) >= 1:
@@ -189,10 +232,12 @@ To continue, please fill these fields
 
 
         chat_box = ui.Columns([
-            text_box, self.exit_button
+            text_box, 
+            self.exit_button,
+            self.back_button,
             ])
 
-        draw_message_list()
+
         chat = Page(ui.LineBox(self.message_view),
                         footer=ui.LineBox(chat_box),
                         focus_part="footer",
@@ -205,4 +250,4 @@ To continue, please fill these fields
 if __name__ == "__main__":
     from . import Client
     uitest = Interface(Client())
-    uitest.chat_menu("test")
+    uitest.main_menu()

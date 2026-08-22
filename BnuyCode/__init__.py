@@ -1,6 +1,7 @@
 import sys
 import urwid
 
+class GoBack(Exception): pass
 def bnuy_except_hook(exctype, value, traceback):
     """Custom messages for exceptions"""
 
