@@ -1,19 +1,21 @@
 from __future__ import annotations
 import sys
 import json
-import uuid as id_gen
 import time
+import uuid
 import urwid as ui
 
+
+"""NOTE: 
+This is a backup before deleting self.chat_menu incase i need it's code
+Do not delete!!!!"""
 
 class Interface():
     def __init__(self, main_obj):
         self.main_obj = main_obj
-        self.screen = ui.raw_display.Screen()
         self.write_fd = None
         self.loop = None
         self.return_called = False
-        self.main_menu_widget = None
 
         #### BUTTON SECTION
         self.exit_button = ui.Button("Exit")
@@ -38,7 +40,7 @@ class Interface():
         self.message_ids = dict()
 
     def go_to_mainmenu(self, button):
-        self.loop.widget = self.main_menu_widget
+        self.main_menu()
 
     def add_msgs(self, message_dict):
         uuid = list(message_dict.keys())[0]
@@ -79,17 +81,14 @@ class Interface():
 
 
     def run_menu(self, menu, input=None):
-
         if input != None:
-            self.loop = ui.MainLoop(menu, self.palette, 
-                                    unhandled_input=input, screen=self.screen)
+            self.loop = ui.MainLoop(menu, self.palette, unhandled_input=input)
         else:
-            self.loop = ui.MainLoop(menu, self.palette, screen=self.screen)
+            self.loop = ui.MainLoop(menu, self.palette)
         self.write_fd = self.loop.watch_pipe(self.callback)
         self.loop.run()
 
         while self.main_obj.sending_post: time.sleep(0.10)
-        self.loop = None
         self.write_fd = None
 
     def stop_program(self, _button: ui.Button) -> None:
@@ -97,7 +96,7 @@ class Interface():
 
     #### User viewed stuff
 
-    def signup(self, callback_method):
+    def signup(self):
         ip = ui.Edit(">>> ")
         name = ui.Edit(">>> ")
         password = ui.Edit(">>> ")
@@ -117,10 +116,7 @@ class Interface():
                     name_len = len(name.get_edit_text())
                     password_len = len(password.get_edit_text())
                     if ip_len and name_len and password_len:
-                        callback_method(dict(ip=ip.get_edit_text(),
-                                             name=name.get_edit_text(),
-                                             password=password.get_edit_text()))
-                        raise ui.ExitMainLoop()
+                        raise ui.ExitMainLoop
                     else:
                         err_map.set_attr_map({None: "err"})
                         err.set_text("Please fill in every field before entering!")
@@ -159,10 +155,14 @@ To continue, please fill these fields
                       header=err_map,
                       footer=ui.LineBox(buttons), 
                       focus_part="body")
-        if self.loop is None:
-            self.run_menu(login)
-        else:
-            self.loop.widget = login
+
+        self.run_menu(login)
+
+        return {
+                "ip": ip.get_edit_text(),
+                "name": name.get_edit_text(),
+                "pass": password.get_edit_text(),
+                }
 
     def main_menu(self):
         text_box = ui.Edit(">>> ")
@@ -189,15 +189,12 @@ To continue, please fill these fields
                 footer=ui.LineBox(ui.Text("Version) V0.0.2")),
                 focus_part=("body"),
                 )
-        self.main_menu_widget = main
-        if self.loop is None:
+        while True:
             self.run_menu(main)
-        else:
-            self.loop.widget = main
 
     def draw_message(self, sender, content):
         message = ui.Pile([
-                ui.Text(f"{sender})"),
+                ui.Text(f"Name) {sender}"),
                 ui.Divider("-"),
                 ui.Text(content),
                 ui.Divider("-"),
@@ -205,15 +202,71 @@ To continue, please fill these fields
             ])
         return message
 
+    def chat_menu(self, username):
+        try: raise ui.ExitMainLoop()
+        except ui.ExitMainLoop: pass
+        interface = self
+        text_box = ui.Edit(">>> ")
+
+        def draw_message_list(receiver):
+
+            for message_metadata in self.messages:
+                sender = message_metadata.get("sender")
+                content = message_metadata.get("content")
+                id = message_metadata.get("id")
+
+                if id not in self.message_ids:
+                    self.message_ids.add(id)
+                    message = self.draw_message(sender, content)
+
+                    self.message_list.append(message)
+                    self.message_list.set_focus(len(self.message_list)-1)
+
+
+        class Page(ui.Frame):
+            def keypress(self, size, key):
+                if key != "enter":
+                    return super().keypress(size, key)
+                elif chat_box.get_focus_column() > 0:
+                    return super().keypress(size, key)
+                else: 
+                    if len(text_box.get_edit_text()) >= 1:
+                        message_dict = {
+                                "uuid": {
+                                    "receiver": interface.main_obj.data["receiver"],
+                                    "sender": username,
+                                    "content": text_box.get_edit_text(),
+                                    "id": interface.main_obj.data["id"],
+                                    }
+                                }
+                        interface.add_msgs(message_dict)
+                        raise ui.ExitMainLoop()
+
+
+        chat_box = ui.Columns([
+            text_box, 
+            self.exit_button,
+            self.back_button,
+            ])
+
+
+        chat = Page(ui.LineBox(self.message_view),
+                        footer=ui.LineBox(chat_box),
+                        focus_part="footer",
+                        )
+
+        self.run_menu(chat)
+        return text_box.get_edit_text()
+    
     def draw_message_list(self, uuid):
+
         for message_metadata in self.messages.get(uuid):
             sender = message_metadata.get("sender")
+            receiver_name = message_metadata.get("receiver_name")
             content = message_metadata.get("content")
             id = message_metadata.get("id")
-            
-            messages_by_id = self.message_ids.get(uuid)
 
-            if messages_by_id is None or id not in messages_by_id:
+            if id not in self.message_ids.get(uuid):
                 self.message_ids[uuid].add(id)
                 message = self.draw_message(sender, content)
 
@@ -221,10 +274,15 @@ To continue, please fill these fields
                 self.message_list.set_focus(len(self.message_list)-1)
 
 
-    def draw_chatbox(self, button, uuid):
+    def draw_chatbox(self, uuid):
+        try: raise ui.ExitMainLoop()
+        except ui.ExitMainLoop: pass
         self.draw_message_list(uuid)
 
-    def chat_menu(self, callback_method):
+
+    def chat_menu_2(self, receiver):
+        try: raise ui.ExitMainLoop()
+        except ui.ExitMainLoop: pass
 
         text_box = ui.Edit(">>> ")
         text_box_draw = ui.Columns([
@@ -246,47 +304,39 @@ To continue, please fill these fields
                     return super().keypress(size, key)
                 else: 
                     if len(text_box.get_edit_text()) >= 1:
-                        interface.data["id"] = str(id_gen.uuid4())
                         message_dict = {
                                 uuid: {
                                     "receiver": interface.main_obj.data["receiver"],
-                                    "sender": interface.main_obj.data["sender"],
+                                    "sender": interface.main_obj.data["sender"]
                                     "content": text_box.get_edit_text(),
                                     "id": interface.main_obj.data["id"],
                                     }
                                 }
                         interface.add_msgs(message_dict)
-                        callback_method(text_box.get_edit_text())
-                        text_box.set_edit_text("")
+                        raise ui.ExitMainLoop()
 
 
         def generate_buttons():
-            for contact_id, stuff in self.messages.items():
-                if contact_id != self.main_obj.data["uuid"]:
-                    contact_name = stuff[-1].get("sender")
-                    button = ui.Button(contact_name)
-                    ui.connect_signal(button, "click", self.draw_chatbox, user_args=[contact_id])
+            for usr_id, _ in self.messages.items():
+                button = ui.Button(usr_id)
+                ui.connect_signal(button, "click", self.draw_chatbox)
 
-                    contact_list.append(button)
+                contact_list.append(button)
 
         generate_buttons()
-        try:
-            default_start = self.messages[uuid][-1]
-            default_name = default_start.get("sender")
-        except (KeyError, IndexError):
-            default_name = "ERR) Unknown name"
-        self.draw_chatbox("",uuid)
+        default_start = self.messages[uuid][-1]
+        default_name = default_start.get("sender")
+        self.draw_chatbox(default_start)
 
         menu = ui.Columns([
             contact_buttons,
-            Page(ui.LineBox(self.message_view),
-                footer=text_box_draw,
-                header=ui.Text(default_name),
-                focus_part="footer"),
+            Page(ui.LineBox(self.message_view,
+                                footer=text_box_draw,
+                                header=ui.Text(default_name),
+                                focus_part="footer"),)
             ])
-        if self.loop is None:
-            self.run_menu(menu)
-        else: self.loop.widget = menu
+
+        self.run_menu(menu)
 
 
 if __name__ == "__main__":
