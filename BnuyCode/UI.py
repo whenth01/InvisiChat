@@ -248,7 +248,7 @@ To continue, please fill these fields
                     return super().keypress(size, key)
                 else: 
                     if len(text_box.get_edit_text()) >= 1:
-                        interface.data["id"] = str(id_gen.uuid4())
+                        interface.main_obj.data["id"] = str(id_gen.uuid4())
                         message_dict = {
                                 uuid: {
                                     "receiver": interface.main_obj.data["receiver"],
