@@ -206,6 +206,8 @@ To continue, please fill these fields
         return message
 
     def draw_message_list(self, uuid):
+        if self.messages.get(uuid) is None:
+            return
         for message_metadata in self.messages.get(uuid):
             sender = message_metadata.get("sender")
             content = message_metadata.get("content")
@@ -228,9 +230,9 @@ To continue, please fill these fields
 
         text_box = ui.Edit(">>> ")
         text_box_draw = ui.Columns([
-            text_box,
-            self.exit_button,
-            self.back_button,
+            ("weight", 3, text_box,),
+            ("pack", self.exit_button,),
+            ("pack", self.back_button,),
             ])
 
         interface = self
@@ -265,7 +267,9 @@ To continue, please fill these fields
                 if contact_id != self.main_obj.data["uuid"]:
                     contact_name = stuff[-1].get("sender")
                     button = ui.Button(contact_name)
-                    ui.connect_signal(button, "click", self.draw_chatbox, user_args=[contact_id])
+                    ui.connect_signal(button, "click", 
+                                      self.draw_chatbox, 
+                                      user_args=[contact_id])
 
                     contact_list.append(button)
 
@@ -278,12 +282,13 @@ To continue, please fill these fields
         self.draw_chatbox("",uuid)
 
         menu = ui.Columns([
-            contact_buttons,
+            ("given",30,contact_buttons,),
             Page(ui.LineBox(self.message_view),
                 footer=text_box_draw,
                 header=ui.Text(default_name),
                 focus_part="footer"),
             ])
+        menu.focus_position = 1
         if self.loop is None:
             self.run_menu(menu)
         else: self.loop.widget = menu
