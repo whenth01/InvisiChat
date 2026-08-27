@@ -43,8 +43,8 @@ class Interface():
         self.already_made_buttons = set()
 
         #### CHAT HANDLING
-        """note: i am afraid this may take me a while :((("""
-        """current time: 27 Aug 2026, 12:34 AM"""
+        #note: i am afraid this may take me a while :(((
+        #current time: 27 Aug 2026, 12:34 AM
         self.chats = dict()
         # note this shiuld always be a uuid
         self.currently_opened_chat = None
@@ -83,6 +83,12 @@ class Interface():
     def callback(self, data: bytes) -> None:
         message = data.decode()
         message = json.loads(message)
+        if not isinstance(message, dict):
+            self.loop.stop()
+            print(message)
+            input()
+            self.loop.start()
+            return
 
         def msg_unpack(message):
             uuid = list(message.keys())[0]
@@ -319,7 +325,7 @@ To continue, please fill these fields
                                     }
                                 }
                         interface.add_msgs(message_dict)
-                        callback_method(text_box.get_edit_text())
+                        callback_method(message_dict)
                         text_box.set_edit_text("")
 
 
