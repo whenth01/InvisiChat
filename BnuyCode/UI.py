@@ -15,14 +15,18 @@ class Interface():
         self.return_called = False
         self.main_menu_widget = None
 
+        self.debug_mode = False
+
         #### BUTTON SECTION
         self.exit_button = ui.Button("Exit")
         self.chat_button = ui.Button("Open chat")
         self.back_button = ui.Button("Back")
+        self.debug_button = ui.Button("Debug mode")
 
         ui.connect_signal(self.exit_button, "click", self.stop_program)
         ui.connect_signal(self.chat_button, "click", self.main_obj.send_msg)
         ui.connect_signal(self.back_button, "click", self.go_to_mainmenu)
+        ui.connect_signal(self.debug_button, "click", self.debug_switch)
 
         #### COLORS
         self.palette = [
@@ -54,40 +58,58 @@ class Interface():
     def go_to_mainmenu(self, button):
         self.loop.widget = self.main_menu_widget
 
-    def add_msgs(self, message_dict):
-        uuid = list(message_dict.keys())[0]
+    def debug_switch(self, button):
+        self.debug_mode = not self.debug_mode
+        self.debug_button.set_label(f"Debug mode ({self.debug_mode})")
 
+    def debug_dissector(self, value):
+        self.loop.stop()
+        print(value)
+        input("Enter any key to continue the code: ")
+        self.loop.start()
+
+    def add_msgs(self, message_dict, skip_check=False, contact_id=None):
+        uuid = list(message_dict.keys())[0]
         sender = message_dict[uuid]["sender"]
         content = message_dict[uuid]["content"]
 
+        def init_message_db(id):
+            self.message_ids[id] = set()
+            self.messages[id] = []
+
+        def save_msg(id, message_dict, msg_id):
+            self.message_ids[id].add(msg_id)
+            self.messages[id].append(message_dict)
+
         if self.messages.get(uuid) is None:
-            self.message_ids[uuid] = set()
-            self.messages[uuid] = []
+
+            if contact_id is not None: init_message_db(contact_id)
+            else: init_message_db(uuid)
+
             if uuid != self.main_obj.data["uuid"]:
                 self.create_contact(uuid, sender)
 
-        id = message_dict[uuid]["id"]
+        msg_id = message_dict[uuid]["id"]
 
-        self.message_ids[uuid].add(id)
-        self.messages[uuid].append(message_dict)
+        if contact_id is not None: save_msg(contact_id, message_dict, msg_id)
+        else: save_msg(uuid, message_dict, msg_id)
 
-        if self.currently_opened_chat != uuid:
+        if not skip_check and self.currently_opened_chat != uuid:
             if self.chats.get(uuid) is None: 
                 self.chats[uuid] = ui.SimpleFocusListWalker([])
 
-            self.chats[uuid].append(self.draw_message(sender, content))
         else:
             self.message_list.append(self.draw_message(sender, content))
+            if self.debug_mode:
+                self.debug_dissector(self.message_list)
+
 
     #### This is used for getting messages from server.py!!!
     def callback(self, data: bytes) -> None:
         message = data.decode()
         message = json.loads(message)
         if not isinstance(message, dict):
-            self.loop.stop()
-            print(message)
-            input()
-            self.loop.start()
+            if self.debug_mode: self.debug_dissector(message)
             return
 
         def msg_unpack(message):
@@ -205,6 +227,7 @@ To continue, please fill these fields
             ui.Columns([
                 ui.Text("Exit & Settings"),
                 self.exit_button,
+                self.debug_button,
                 ]),
 
             ui.Divider("-"),
@@ -267,7 +290,7 @@ To continue, please fill these fields
 
 
     def draw_chatbox(self, button, uuid):
-
+        self.currently_opened_chat = uuid
         if self.chats.get(uuid) is not None:
             self.message_list = self.chats.get(uuid)
             self.message_view.body = self.message_list
@@ -276,7 +299,6 @@ To continue, please fill these fields
             self.save_chat(self.currently_opened_chat)
             self.message_list.clear()
 
-        self.currently_opened_chat = uuid
         self.draw_message_list(uuid)
     
     def create_contact(self, contact_id, contact_name):
@@ -316,15 +338,15 @@ To continue, please fill these fields
                     if len(text_box.get_edit_text()) >= 1:
                         interface.main_obj.data["id"] = str(id_gen.uuid4())
                         message_dict = {
-                                interface.currently_opened_chat: {
+                                    interface.main_obj.data["uuid"]: {
                                     "receiver": interface.main_obj.data["receiver"],
                                     "sender": interface.main_obj.data["sender"],
                                     "content": text_box.get_edit_text(),
-                                    "uuid": interface.currently_opened_chat,
+                                    "uuid": interface.main_obj.data["uuid"],
                                     "id": interface.main_obj.data["id"],
                                     }
                                 }
-                        interface.add_msgs(message_dict)
+                        interface.add_msgs(message_dict, skip_check=True,)
                         callback_method(message_dict)
                         text_box.set_edit_text("")
 
