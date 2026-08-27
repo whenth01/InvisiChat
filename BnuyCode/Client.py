@@ -3,7 +3,6 @@ import time
 import uuid
 import requests
 import threading
-from . import GoBack
 from . import Server
 from . import UI
 
@@ -18,7 +17,6 @@ class ClientSide():
         self.data = {
                 "receiver": None,
                 "sender": None,
-                "content": None,
                 "uuid": None,
                 "id": None,
                 }
@@ -44,11 +42,10 @@ class ClientSide():
 
 
     #### SEND MESSAGEZ
-    def send_msg_callback(self, text):
-        self.data["content"] = text
+    def send_msg_callback(self, message_dict):
         try:
             self.sending_post = True
-            resp = requests.post(self.data["receiver"], json=self.data, timeout=5)
+            resp = requests.post(self.data["receiver"], json=message_dict, timeout=5)
             self.sending_post = False
 
         except requests.ConnectionError: 

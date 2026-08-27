@@ -36,6 +36,20 @@ class Interface():
         self.message_list = ui.SimpleFocusListWalker([])
         self.message_view = ui.ListBox(self.message_list)
         self.message_ids = dict()
+        
+        #### CONTACT BUTTON WIDGETS
+        self.contact_list = ui.SimpleFocusListWalker([])
+        self.contact_buttons = ui.ListBox(self.contact_list)
+        self.already_made_buttons = set()
+
+        #### CHAT HANDLING
+        """note: i am afraid this may take me a while :((("""
+        """current time: 27 Aug 2026, 12:34 AM"""
+        self.chats = dict()
+        # note this shiuld always be a uuid
+        self.currently_opened_chat = None
+        # different from above
+        self.current_contact_name = None
 
     def go_to_mainmenu(self, button):
         self.loop.widget = self.main_menu_widget
@@ -43,17 +57,27 @@ class Interface():
     def add_msgs(self, message_dict):
         uuid = list(message_dict.keys())[0]
 
+        sender = message_dict[uuid]["sender"]
+        content = message_dict[uuid]["content"]
+
         if self.messages.get(uuid) is None:
             self.message_ids[uuid] = set()
             self.messages[uuid] = []
+            if uuid != self.main_obj.data["uuid"]:
+                self.create_contact(uuid, sender)
 
-        sender = message_dict[uuid]["sender"]
-        content = message_dict[uuid]["content"]
         id = message_dict[uuid]["id"]
 
         self.message_ids[uuid].add(id)
-        self.messages[uuid].append(message_dict[uuid])
-        self.message_list.append(self.draw_message(sender, content))
+        self.messages[uuid].append(message_dict)
+
+        if self.currently_opened_chat != uuid:
+            if self.chats.get(uuid) is None: 
+                self.chats[uuid] = ui.SimpleFocusListWalker([])
+
+            self.chats[uuid].append(self.draw_message(sender, content))
+        else:
+            self.message_list.append(self.draw_message(sender, content))
 
     #### This is used for getting messages from server.py!!!
     def callback(self, data: bytes) -> None:
@@ -61,20 +85,24 @@ class Interface():
         message = json.loads(message)
 
         def msg_unpack(message):
-            message_dict = message
-            sender = message_dict.get("sender")
-            content = message_dict.get("content")
+            uuid = list(message.keys())[0]
+            sender = message[uuid].get("sender")
+            content = message[uuid].get("content")
 
-            return sender, content, message_dict
+            return sender, content, message
+
+        def unpack_write(msg):
+            sender, _, message_dict = msg_unpack(msg)
+            self.current_contact_name[0].set_text(sender)
+            self.add_msgs(message_dict)
 
         if isinstance(message, list):
             for nested_msg in message:
-                _, _, message_dict = msg_unpack(nested_msg)
-                self.add_msgs(message_dict)
+                unpack_write(nested_msg)
 
         else: 
-            _, _, message_dict = msg_unpack(message)
-            self.add_msgs(message_dict)
+            unpack_write(message)
+
         if self.loop is not None: self.loop.draw_screen()
 
 
@@ -182,12 +210,13 @@ To continue, please fill these fields
 
             ui.Divider("-"),
             ])
+        from . import version
 
         main = ui.Frame(
                 ui.LineBox(buttons),
                 header=ui.Text("Welcome back to TermChat!:3"),
-                footer=ui.LineBox(ui.Text("Version) V0.0.2")),
-                focus_part=("body"),
+                footer=ui.LineBox(ui.Text(f"Version) {version}")),
+                focus_part="body",
                 )
         self.main_menu_widget = main
         if self.loop is None:
@@ -205,40 +234,71 @@ To continue, please fill these fields
             ])
         return message
 
+    def save_chat(self, uuid):
+        self.chats[uuid] = ui.SimpleFocusListWalker(self.message_list)
+
     def draw_message_list(self, uuid):
         if self.messages.get(uuid) is None:
             return
         for message_metadata in self.messages.get(uuid):
-            sender = message_metadata.get("sender")
-            content = message_metadata.get("content")
-            id = message_metadata.get("id")
+            sender = message_metadata[uuid].get("sender")
+            content = message_metadata[uuid].get("content")
+            id = message_metadata[uuid].get("id")
             
             messages_by_id = self.message_ids.get(uuid)
 
             if messages_by_id is None or id not in messages_by_id:
+                if self.message_ids.get(uuid) is None:
+                    self.message_ids[uuid] = set()
+
                 self.message_ids[uuid].add(id)
                 message = self.draw_message(sender, content)
 
                 self.message_list.append(message)
                 self.message_list.set_focus(len(self.message_list)-1)
 
+        self.save_chat(uuid)
+
 
     def draw_chatbox(self, button, uuid):
+
+        if self.chats.get(uuid) is not None:
+            self.message_list = self.chats.get(uuid)
+            self.message_view.body = self.message_list
+
+        else: 
+            self.save_chat(self.currently_opened_chat)
+            self.message_list.clear()
+
+        self.currently_opened_chat = uuid
         self.draw_message_list(uuid)
+    
+    def create_contact(self, contact_id, contact_name):
+        if contact_id not in self.already_made_buttons:
+            button = ui.Button(contact_name)
+            ui.connect_signal(button, "click", 
+                              self.draw_chatbox, 
+                              user_args=[contact_id])
+
+            self.already_made_buttons.add(contact_id)
+
+            self.contact_list.append(button)
 
     def chat_menu(self, callback_method):
 
         text_box = ui.Edit(">>> ")
         text_box_draw = ui.Columns([
             ("weight", 3, text_box,),
-            ("pack", self.exit_button,),
             ("pack", self.back_button,),
             ])
+        text_box_draw.focus_position = 0
 
         interface = self
-        contact_list = ui.SimpleFocusListWalker([])
-        contact_buttons = ui.ListBox(contact_list)
-        uuid = self.main_obj.data["uuid"]
+
+        if self.currently_opened_chat is not None:
+            uuid = self.currently_opened_chat
+        else:
+            uuid = self.main_obj.data["uuid"]
 
         class Page(ui.Frame):
             def keypress(self, size, key):
@@ -250,10 +310,11 @@ To continue, please fill these fields
                     if len(text_box.get_edit_text()) >= 1:
                         interface.main_obj.data["id"] = str(id_gen.uuid4())
                         message_dict = {
-                                uuid: {
+                                interface.currently_opened_chat: {
                                     "receiver": interface.main_obj.data["receiver"],
                                     "sender": interface.main_obj.data["sender"],
                                     "content": text_box.get_edit_text(),
+                                    "uuid": interface.currently_opened_chat,
                                     "id": interface.main_obj.data["id"],
                                     }
                                 }
@@ -265,27 +326,23 @@ To continue, please fill these fields
         def generate_buttons():
             for contact_id, stuff in self.messages.items():
                 if contact_id != self.main_obj.data["uuid"]:
-                    contact_name = stuff[-1].get("sender")
-                    button = ui.Button(contact_name)
-                    ui.connect_signal(button, "click", 
-                                      self.draw_chatbox, 
-                                      user_args=[contact_id])
-
-                    contact_list.append(button)
+                    contact_name = stuff[-1][contact_id].get("sender")
+                    self.create_contact(contact_id, contact_name)
 
         generate_buttons()
         try:
             default_start = self.messages[uuid][-1]
-            default_name = default_start.get("sender")
+            self.current_contact_name = [ui.Text(default_start[uuid].get("sender")), False]
         except (KeyError, IndexError):
-            default_name = "ERR) Unknown name"
+            self.current_contact_name = [ui.Text("ERR) Unknown name"), True]
         self.draw_chatbox("",uuid)
+        self.currently_opened_chat = uuid
 
         menu = ui.Columns([
-            ("given",30,contact_buttons,),
+            ("given",30,self.contact_buttons,),
             Page(ui.LineBox(self.message_view),
                 footer=text_box_draw,
-                header=ui.Text(default_name),
+                header=self.current_contact_name[0],
                 focus_part="footer"),
             ])
         menu.focus_position = 1
