@@ -68,6 +68,12 @@ class Interface():
         input("Enter any key to continue the code: ")
         self.loop.start()
 
+    def debug_dissect_type(self, value):
+        self.loop.stop()
+        print(type(value), value)
+        input("Enter any key to continue the code: ")
+        self.loop.start()
+
     def add_msgs(self, message_dict, skip_check=False, contact_id=None):
         uuid = list(message_dict.keys())[0]
         sender = message_dict[uuid]["sender"]
@@ -293,6 +299,9 @@ To continue, please fill these fields
 
     def draw_chatbox(self, button, uuid, name):
         self.currently_opened_chat = uuid
+        if self.debug_mode:
+            self.debug_dissect_type(name)
+
         if self.chats.get(uuid) is not None:
             self.message_list = self.chats.get(uuid)
             self.message_view.body = self.message_list
@@ -300,8 +309,10 @@ To continue, please fill these fields
         else: 
             self.save_chat(self.currently_opened_chat)
             self.message_list.clear()
-
-        self.current_contact_name.set_text(name)
+        if isinstance(self.current_contact_name, ui.Text):
+            self.current_contact_name.set_text(name)
+        else:
+            self.current_contact_name = ui.Text(name)
         self.draw_message_list(uuid)
     
     def create_contact(self, contact_id, contact_name):
