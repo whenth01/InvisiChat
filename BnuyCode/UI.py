@@ -78,7 +78,6 @@ class Interface():
             self.messages[id] = []
 
         def save_msg(id, message_dict, msg_id):
-            self.message_ids[id].add(msg_id)
             self.messages[id].append(message_dict)
 
         if self.messages.get(uuid) is None:
@@ -100,6 +99,9 @@ class Interface():
 
         else:
             self.message_list.append(self.draw_message(sender, content))
+            if contact_id is not None:
+                self.message_ids[contact_id].add(msg_id)
+            else: self.message_ids[uuid].add(msg_id)
             if self.debug_mode:
                 self.debug_dissector(self.message_list)
 

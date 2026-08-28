@@ -1,6 +1,6 @@
 import sys
 import urwid
-version = "Test build V1.0.5"
+version = "Test build V1.0.6"
 
 def bnuy_except_hook(exctype, value, traceback):
     """Custom messages for exceptions"""
