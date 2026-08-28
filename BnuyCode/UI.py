@@ -123,10 +123,7 @@ class Interface():
 
         def unpack_write(msg):
             sender, _, message_dict = msg_unpack(msg)
-            if isinstance(self.current_contact_name, list):
-                self.current_contact_name[0].set_text(sender)
-            else:
-                self.current_contact_name.set_text(sender)
+            self.current_contact_name.set_text(sender)
             self.add_msgs(message_dict)
 
         if isinstance(message, list):
@@ -304,7 +301,7 @@ To continue, please fill these fields
             self.save_chat(self.currently_opened_chat)
             self.message_list.clear()
 
-        self.current_contact_name = ui.Text(name)
+        self.current_contact_name.set_text(name)
         self.draw_message_list(uuid)
     
     def create_contact(self, contact_id, contact_name):
@@ -368,17 +365,17 @@ To continue, please fill these fields
         generate_buttons()
         try:
             default_start = self.messages[uuid][-1]
-            self.current_contact_name = [ui.Text(default_start[uuid].get("sender")), False]
+            self.current_contact_name = ui.Text(default_start[uuid].get("sender"))
         except (KeyError, IndexError):
-            self.current_contact_name = [ui.Text("No chat currently open!"), True]
-        self.draw_chatbox("",uuid, self.current_contact_name)
+            self.current_contact_name = ui.Text("No chat currently open!")
+        self.draw_chatbox("",uuid, self.current_contact_name.get_text()[0])
         self.currently_opened_chat = uuid
 
         menu = ui.Columns([
             ("given",30,self.contact_buttons,),
             Page(ui.LineBox(self.message_view),
                 footer=text_box_draw,
-                header=self.current_contact_name[0],
+                header=self.current_contact_name,
                 focus_part="footer"),
             ])
         menu.focus_position = 1
