@@ -123,7 +123,10 @@ class Interface():
 
         def unpack_write(msg):
             sender, _, message_dict = msg_unpack(msg)
-            self.current_contact_name[0].set_text(sender)
+            if isinstance(self.current_contact_name, list):
+                self.current_contact_name[0].set_text(sender)
+            else:
+                self.current_contact_name.set_text(sender)
             self.add_msgs(message_dict)
 
         if isinstance(message, list):
@@ -291,7 +294,7 @@ To continue, please fill these fields
         self.save_chat(uuid)
 
 
-    def draw_chatbox(self, button, uuid):
+    def draw_chatbox(self, button, uuid, name):
         self.currently_opened_chat = uuid
         if self.chats.get(uuid) is not None:
             self.message_list = self.chats.get(uuid)
@@ -301,6 +304,7 @@ To continue, please fill these fields
             self.save_chat(self.currently_opened_chat)
             self.message_list.clear()
 
+        self.current_contact_name = ui.Text(name)
         self.draw_message_list(uuid)
     
     def create_contact(self, contact_id, contact_name):
@@ -308,7 +312,7 @@ To continue, please fill these fields
             button = ui.Button(contact_name)
             ui.connect_signal(button, "click", 
                               self.draw_chatbox, 
-                              user_args=[contact_id])
+                              user_args=[contact_id, contact_name])
 
             self.already_made_buttons.add(contact_id)
 
@@ -338,6 +342,8 @@ To continue, please fill these fields
                     return super().keypress(size, key)
                 else: 
                     if len(text_box.get_edit_text()) >= 1:
+                        if interface.main_obj.data["receiver"] == interface.main_obj.data["sender"]:
+                            return
                         interface.main_obj.data["id"] = str(id_gen.uuid4())
                         message_dict = {
                                     interface.main_obj.data["uuid"]: {
@@ -364,8 +370,8 @@ To continue, please fill these fields
             default_start = self.messages[uuid][-1]
             self.current_contact_name = [ui.Text(default_start[uuid].get("sender")), False]
         except (KeyError, IndexError):
-            self.current_contact_name = [ui.Text("ERR) Unknown name"), True]
-        self.draw_chatbox("",uuid)
+            self.current_contact_name = [ui.Text("No chat currently open!"), True]
+        self.draw_chatbox("",uuid, self.current_contact_name)
         self.currently_opened_chat = uuid
 
         menu = ui.Columns([

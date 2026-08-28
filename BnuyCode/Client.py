@@ -49,12 +49,11 @@ class ClientSide():
             self.sending_post = False
 
         except requests.ConnectionError: 
-            self.sending_post = False
             pass
         except requests.Timeout:
-            self.sending_post = False
             self.clear_terminal()
             pass
+        finally: self.sending_post = False
 
     def send_msg(self, button):
         self.ui.chat_menu(callback_method=self.send_msg_callback)
