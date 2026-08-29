@@ -92,7 +92,8 @@ class Interface():
             else: init_message_db(uuid)
 
             if uuid != self.main_obj.data["uuid"]:
-                self.create_contact(uuid, sender)
+                if self.contact_id is not None: self.create_contact(contact_id, sender)
+                else: self.create_contact(uuid, sender)
 
         msg_id = message_dict[uuid]["id"]
 
@@ -108,8 +109,10 @@ class Interface():
             if contact_id is not None:
                 self.message_ids[contact_id].add(msg_id)
             else: self.message_ids[uuid].add(msg_id)
-
-        self.save_chat(uuid)
+        if contact_id is not None:
+            self.save_chat(contact_id)
+        else:
+            self.save_chat(uuid)
         if self.debug_mode:
             self.debug_dissector(self.message_list)
 
@@ -128,7 +131,8 @@ class Interface():
 
         def unpack_write(msg):
             sender, _, message_dict = msg_unpack(msg)
-            self.current_contact_name.set_text(sender)
+            if self.current_contact_name is not None:
+                self.current_contact_name.set_text(sender)
             self.add_msgs(message_dict)
 
         if isinstance(message, list):

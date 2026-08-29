@@ -23,7 +23,9 @@ def message_receive(ui):
 
     @app.route("/message", methods=["POST"])
     def get_msg():
-        data = request.get_json()
+        data = request.get_json(silent=True, force=True)
+        if data is None:
+            return
 
         if ui.write_fd is None:
             cached_msg.append(data)
@@ -39,5 +41,5 @@ def message_receive(ui):
 
         return jsonify({"status": "received"}), 200
     flask.cli.show_server_banner = lambda *a, **k: None
-    app.run(host="0.0.0.0", port=8008)
+    app.run(host="0.0.0.0", port=8008, threaded=True)
 
