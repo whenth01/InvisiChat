@@ -87,7 +87,7 @@ class Interface():
         def save_msg(id, message_dict, msg_id):
             self.messages[id].append(message_dict)
 
-        if self.messages.get(uuid) is None or contact_id is not None and self.messages.get(contact_id) is None:
+        if contact_id is not None and self.messages.get(contact_id) is None:
 
             if contact_id is not None: init_message_db(contact_id)
             else: init_message_db(uuid)
@@ -107,6 +107,7 @@ class Interface():
 
         else:
             self.message_list.append(self.draw_message(sender, content))
+            self.message_list.set_focus(len(self.message_list)-1)
             if contact_id is not None:
                 self.message_ids[contact_id].add(msg_id)
             else: self.message_ids[uuid].add(msg_id)
@@ -390,8 +391,16 @@ To continue, please fill these fields
         def generate_buttons():
             for contact_id, stuff in self.messages.items():
                 if contact_id != self.main_obj.data["uuid"]:
-                    contact_name = stuff[-1][contact_id].get("sender")
-                    self.create_contact(contact_id, contact_name)
+                    chat_len = len(stuff)
+                    while True:
+                        if stuff[chat_len].get(contact_id) is None:
+                            if chat_len == 0: break
+                            chat_len -= 1
+                            continue
+                        else:
+                            contact_name = stuff[chat_len][contact_id].get("sender")
+                            self.create_contact(contact_id, contact_name)
+                            break
 
         generate_buttons()
         try:

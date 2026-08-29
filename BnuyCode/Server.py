@@ -26,6 +26,8 @@ def message_receive(ui):
         data = request.get_json(silent=True, force=True)
         if data is None:
             return jsonify({"status": "unknown POST request"}), 404
+        elif not isinstance(data, dict):
+            return jsonify({"status": f"unknown/garbled data: {data}, expected dict"})
 
         if ui.write_fd is None:
             cached_msg.append(data)
