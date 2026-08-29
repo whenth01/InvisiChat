@@ -379,7 +379,9 @@ To continue, please fill these fields
                                     "id": interface.main_obj.data["id"],
                                     }
                                 }
-                        interface.add_msgs(message_dict, skip_check=True,contact_id=self.currently_opened_chat)
+                        interface.add_msgs(message_dict,
+                                           skip_check=True,
+                                           contact_id=interface.currently_opened_chat)
                         callback_method(message_dict)
                         text_box.set_edit_text("")
 
