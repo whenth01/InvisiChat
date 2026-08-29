@@ -135,6 +135,7 @@ class Interface():
 
         def unpack_write(msg):
             sender, _, message_dict = msg_unpack(msg)
+            uuid = list(message_dict.keys())[0]
             if self.current_contact_name is not None and uuid == self.currently_opened_chat:
                 self.current_contact_name.set_text(sender)
             self.add_msgs(message_dict)
