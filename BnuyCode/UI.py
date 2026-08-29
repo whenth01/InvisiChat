@@ -92,7 +92,7 @@ class Interface():
             else: init_message_db(uuid)
 
             if uuid != self.main_obj.data["uuid"]:
-                if self.contact_id is not None: self.create_contact(contact_id, sender)
+                if contact_id is not None: self.create_contact(contact_id, sender)
                 else: self.create_contact(uuid, sender)
 
         msg_id = message_dict[uuid]["id"]
