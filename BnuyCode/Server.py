@@ -35,7 +35,6 @@ def message_receive(ui):
                 cached_msg.clear()
 
             else:
-                while ui.write_fd is None: time.sleep(0.1)
                 os.write(ui.write_fd, json.dumps(data).encode())
 
         return jsonify({"status": "received"}), 200

@@ -86,7 +86,7 @@ class Interface():
         def save_msg(id, message_dict, msg_id):
             self.messages[id].append(message_dict)
 
-        if self.messages.get(uuid) is None:
+        if self.messages.get(uuid) is None or contact_id is not None and self.messages.get(contact_id) is None:
 
             if contact_id is not None: init_message_db(contact_id)
             else: init_message_db(uuid)
@@ -108,17 +108,16 @@ class Interface():
             if contact_id is not None:
                 self.message_ids[contact_id].add(msg_id)
             else: self.message_ids[uuid].add(msg_id)
-            if self.debug_mode:
-                self.debug_dissector(self.message_list)
+
+        self.save_chat(uuid)
+        if self.debug_mode:
+            self.debug_dissector(self.message_list)
 
 
     #### This is used for getting messages from server.py!!!
     def callback(self, data: bytes) -> None:
         message = data.decode()
         message = json.loads(message)
-        if not isinstance(message, dict):
-            if self.debug_mode: self.debug_dissector(message)
-            return
 
         def msg_unpack(message):
             uuid = list(message.keys())[0]
@@ -298,9 +297,17 @@ To continue, please fill these fields
 
 
     def draw_chatbox(self, button, uuid, name):
-        self.currently_opened_chat = uuid
+        new_chat = uuid
         if self.debug_mode:
             self.debug_dissect_type(name)
+        """
+        this is here because for some reason,
+        the code hallucinates name into a ui.Button
+        i have 0 idea how the fuck this happens or where,
+        but the lines below below seems to fix it
+        """
+        if isinstance(name, ui.Button):
+            name = name.get_label()
 
         if self.chats.get(uuid) is not None:
             self.message_list = self.chats.get(uuid)
@@ -309,6 +316,8 @@ To continue, please fill these fields
         else: 
             self.save_chat(self.currently_opened_chat)
             self.message_list.clear()
+
+        self.currently_opened_chat = uuid
         if isinstance(self.current_contact_name, ui.Text):
             self.current_contact_name.set_text(name)
         else:
@@ -318,6 +327,8 @@ To continue, please fill these fields
     def create_contact(self, contact_id, contact_name):
         if contact_id not in self.already_made_buttons:
             button = ui.Button(contact_name)
+            if self.debug_mode:
+                self.debug_dissect_type(contact_name)
             ui.connect_signal(button, "click", 
                               self.draw_chatbox, 
                               user_args=[contact_id, contact_name])
@@ -350,8 +361,6 @@ To continue, please fill these fields
                     return super().keypress(size, key)
                 else: 
                     if len(text_box.get_edit_text()) >= 1:
-                        if interface.main_obj.data["receiver"] == interface.main_obj.data["sender"]:
-                            return
                         interface.main_obj.data["id"] = str(id_gen.uuid4())
                         message_dict = {
                                     interface.main_obj.data["uuid"]: {
