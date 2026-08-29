@@ -78,6 +78,7 @@ class Interface():
         uuid = list(message_dict.keys())[0]
         sender = message_dict[uuid]["sender"]
         content = message_dict[uuid]["content"]
+        # i gave up all pretense of clean code whilst making this method
 
         def init_message_db(id):
             self.message_ids[id] = set()
@@ -109,10 +110,13 @@ class Interface():
             if contact_id is not None:
                 self.message_ids[contact_id].add(msg_id)
             else: self.message_ids[uuid].add(msg_id)
-        if contact_id is not None:
-            self.save_chat(contact_id)
-        else:
-            self.save_chat(uuid)
+
+        if self.currently_opened_chat == uuid:
+            if contact_id is not None:
+                self.save_chat(contact_id)
+            else:
+                self.save_chat(uuid)
+
         if self.debug_mode:
             self.debug_dissector(self.message_list)
 
@@ -131,7 +135,7 @@ class Interface():
 
         def unpack_write(msg):
             sender, _, message_dict = msg_unpack(msg)
-            if self.current_contact_name is not None:
+            if self.current_contact_name is not None and uuid == self.currently_opened_chat:
                 self.current_contact_name.set_text(sender)
             self.add_msgs(message_dict)
 
@@ -232,7 +236,6 @@ To continue, please fill these fields
             self.loop.widget = login
 
     def main_menu(self):
-        text_box = ui.Edit(">>> ")
 
         buttons = ui.Pile([
             ui.Columns([
@@ -366,16 +369,17 @@ To continue, please fill these fields
                 else: 
                     if len(text_box.get_edit_text()) >= 1:
                         interface.main_obj.data["id"] = str(id_gen.uuid4())
+                        client_uuid = interface.main_obj.data["uuid"]
                         message_dict = {
-                                    interface.main_obj.data["uuid"]: {
+                                    client_uuid: {
                                     "receiver": interface.main_obj.data["receiver"],
                                     "sender": interface.main_obj.data["sender"],
                                     "content": text_box.get_edit_text(),
-                                    "uuid": interface.main_obj.data["uuid"],
+                                    "uuid": client_uuid,
                                     "id": interface.main_obj.data["id"],
                                     }
                                 }
-                        interface.add_msgs(message_dict, skip_check=True,)
+                        interface.add_msgs(message_dict, skip_check=True,contact_id=self.currently_opened_chat)
                         callback_method(message_dict)
                         text_box.set_edit_text("")
 

@@ -25,7 +25,7 @@ def message_receive(ui):
     def get_msg():
         data = request.get_json(silent=True, force=True)
         if data is None:
-            return
+            return jsonify({"status": "unknown POST request"}), 404
 
         if ui.write_fd is None:
             cached_msg.append(data)
