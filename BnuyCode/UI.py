@@ -405,7 +405,7 @@ To continue, please fill these fields
         self.currently_opened_chat = uuid
 
         menu = ui.Columns([
-            ("given",30,self.contact_buttons,),
+            ("given",20,ui.LineBox(self.contact_buttons),),
             Page(ui.LineBox(self.message_view),
                 footer=text_box_draw,
                 header=self.current_contact_name,
