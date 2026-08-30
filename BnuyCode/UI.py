@@ -88,13 +88,14 @@ class Interface():
             self.messages[id].append(message_dict)
 
         if contact_id is not None and self.messages.get(contact_id) is None:
-
-            if contact_id is not None: init_message_db(contact_id)
-            else: init_message_db(uuid)
-
             if uuid != self.main_obj.data["uuid"]:
-                if contact_id is not None: self.create_contact(contact_id, sender)
-                else: self.create_contact(uuid, sender)
+                self.create_contact(contact_id, sender)
+            init_message_db(contact_id)
+
+        elif self.messages.get(uuid) is None:
+            if uuid != self.main_obj.data["uuid"]:
+                self.create_contact(uuid, sender)
+            init_message_db(uuid)
 
         msg_id = message_dict[uuid]["id"]
 
