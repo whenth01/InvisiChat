@@ -306,18 +306,10 @@ To continue, please fill these fields
         self.save_chat(uuid)
 
 
-    def draw_chatbox(self, button, uuid, name):
+    def draw_chatbox(self, uuid, name, button):
         new_chat = uuid
         if self.debug_mode:
             self.debug_dissect_type(name)
-        """
-        this is here because for some reason,
-        the code hallucinates name into a ui.Button
-        i have 0 idea how the fuck this happens or where,
-        but the lines below below seems to fix it
-        """
-        if isinstance(name, ui.Button):
-            name = name.get_label()
 
         if self.chats.get(uuid) is not None:
             self.message_list = self.chats.get(uuid)
