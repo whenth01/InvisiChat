@@ -392,7 +392,7 @@ To continue, please fill these fields
         def generate_buttons():
             for contact_id, stuff in self.messages.items():
                 if contact_id != self.main_obj.data["uuid"]:
-                    chat_len = len(stuff)
+                    chat_len = len(stuff)-1
                     while True:
                         if stuff[chat_len].get(contact_id) is None:
                             if chat_len == 0: break
