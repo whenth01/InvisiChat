@@ -13,10 +13,14 @@ class ClientSide():
                                     args=(self.ui,), 
                                     daemon=True)
 
-        self.msg_receiver.start()
+        self.background_receiver = threading.Thread(target=Server.handshake,
+                                    args=(self.ui,),
+                                    daemon=True)
+
         self.data = {
                 "receiver": None,
                 "sender": None,
+                "port": 8008,
                 "uuid": None,
                 "id": None,
                 }
@@ -25,6 +29,7 @@ class ClientSide():
         self.sending_post = False
 
         self.signup()
+        self.msg_receiver.start()
         self.ui.main_menu()
 
     def clear_terminal(self):
@@ -35,6 +40,7 @@ class ClientSide():
         self.data["receiver"] = f"http://{data.get('ip')}:8008/message"
         self.data["sender"] = data.get("name")
         self.data["uuid"] = str(uuid.uuid4())
+        self.background_receiver.start()
 
     def signup(self):
         if self.data["receiver"] is None:
@@ -42,18 +48,22 @@ class ClientSide():
 
 
     #### SEND MESSAGEZ
-    def send_msg_callback(self, message_dict):
+    def send_msg_callback(self, message_dict, pos):
         try:
             self.sending_post = True
+            self.ui.loop.draw_screen()
             resp = requests.post(self.data["receiver"], json=message_dict, timeout=5)
+            self.ui.currently_sending_msg[pos].set_attr_map({None: "default"})
             self.sending_post = False
 
         except requests.ConnectionError: 
-            pass
+            self.ui.currently_sending_msg[pos].set_attr_map({None: "err"})
         except requests.Timeout:
-            self.clear_terminal()
-            pass
-        finally: self.sending_post = False
+            self.ui.currently_sending_msg[pos].set_attr_map({None: "err"})
+
+        finally: 
+            self.ui.currently_sending_msg.pop(pos)
+            self.sending_post = False
 
     def send_msg(self, button):
         self.ui.chat_menu(callback_method=self.send_msg_callback)

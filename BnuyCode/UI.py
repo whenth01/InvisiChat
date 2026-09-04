@@ -4,6 +4,8 @@ import json
 import uuid as id_gen
 import time
 import urwid as ui
+import requests
+from . import Server
 
 
 class Interface():
@@ -20,18 +22,24 @@ class Interface():
         #### BUTTON SECTION
         self.exit_button = ui.Button("Exit")
         self.chat_button = ui.Button("Open chat")
+        self.add_friend_button = ui.Button("Add a new friend")
         self.back_button = ui.Button("Back")
         self.debug_button = ui.Button("Debug mode")
 
         ui.connect_signal(self.exit_button, "click", self.stop_program)
         ui.connect_signal(self.chat_button, "click", self.main_obj.send_msg)
+        ui.connect_signal(self.add_friend_button, "click", self.add_friend)
         ui.connect_signal(self.back_button, "click", self.go_to_mainmenu)
         ui.connect_signal(self.debug_button, "click", self.debug_switch)
 
         #### COLORS
         self.palette = [
                 ("err", "white", "dark red"), # for errors
-                ("clr_err", "default", "default") # empty a row
+                ("clr_err", "default", "default"), # empty a row
+                ("success", "white", "dark green"),
+                ("lgrey_txt", "light gray", "default"),
+                ("dgrey_txt", "dark gray", "default"),
+                ("default", "default", "default")
                 ]
 
         #### MESSAGES
@@ -40,20 +48,66 @@ class Interface():
         self.message_list = ui.SimpleFocusListWalker([])
         self.message_view = ui.ListBox(self.message_list)
         self.message_ids = dict()
-        
+
         #### CONTACT BUTTON WIDGETS
         self.contact_list = ui.SimpleFocusListWalker([])
         self.contact_buttons = ui.ListBox(self.contact_list)
-        self.already_made_buttons = set()
+        self.already_made_buttons = dict()
 
         #### CHAT HANDLING
         #note: i am afraid this may take me a while :(((
         #current time: 27 Aug 2026, 12:34 AM
         self.chats = dict()
+        self.contact_ips = dict()
         # note this shiuld always be a uuid
         self.currently_opened_chat = None
-        # different from above
+        # different from above, shouldnt be uuid
         self.current_contact_name = None
+        # should be list of AttrMap
+        self.currently_sending_msg = list()
+
+    def add_friend(self, button):
+        contact_ip = ui.Edit(">>> ")
+        status = ui.Text("")
+        status_map = ui.AttrMap(status, "clr_err")
+        interface = self
+
+        menu = ui.Pile([
+            ui.Text("Please enter an IP."),
+            contact_ip,
+            ui.Divider("-"),
+            ])
+
+        buttons = ui.Columns([
+            self.back_button
+            ])
+
+        class Page(ui.Frame):
+            def upd_status(self, txt, map):
+                status.set_text(txt)
+                status_map.set_attr_map({None: map})
+
+            def keypress(self, size, key):
+                if key != "enter": 
+                    return super().keypress(size, key)
+
+                else:
+                    info = {
+                        "link": contact_ip,
+                        "status": status,
+                        "status_map": status_map,
+                        "page_class": self,
+                        "interface": interface,
+                        }
+                    Server.friend_handshake(info)
+
+
+        form = Page(ui.LineBox(menu),
+                        header=status_map,
+                        footer=ui.LineBox(buttons))
+
+        if self.loop is None: self.run_menu(form)
+        else: self.loop.widget = form
 
     def go_to_mainmenu(self, button):
         self.loop.widget = self.main_menu_widget
@@ -63,16 +117,20 @@ class Interface():
         self.debug_button.set_label(f"Debug mode ({self.debug_mode})")
 
     def debug_dissector(self, value):
-        self.loop.stop()
+        if self.loop is not None:
+            self.loop.stop()
         print(value)
         input("Enter any key to continue the code: ")
-        self.loop.start()
+        if self.loop is not None:
+            self.loop.start()
 
     def debug_dissect_type(self, value):
-        self.loop.stop()
+        if self.loop is not None:
+            self.loop.stop()
         print(type(value), value)
         input("Enter any key to continue the code: ")
-        self.loop.start()
+        if self.loop is not None:
+            self.loop.start()
 
     def add_msgs(self, message_dict, skip_check=False, contact_id=None):
         uuid = list(message_dict.keys())[0]
@@ -108,12 +166,17 @@ class Interface():
 
         else:
             self.message_list.append(self.draw_message(sender, content))
+
+            if uuid == self.main_obj.data["uuid"]:
+                self.message_list[-1] = ui.AttrMap(self.message_list[-1], "dgrey_txt")
+                self.currently_sending_msg.append(self.message_list[-1])
+
             self.message_list.set_focus(len(self.message_list)-1)
             if contact_id is not None:
                 self.message_ids[contact_id].add(msg_id)
             else: self.message_ids[uuid].add(msg_id)
 
-        if self.currently_opened_chat == uuid:
+        if self.currently_opened_chat == contact_id:
             if contact_id is not None:
                 self.save_chat(contact_id)
             else:
@@ -133,21 +196,20 @@ class Interface():
             sender = message[uuid].get("sender")
             content = message[uuid].get("content")
 
-            return sender, content, message
+            return sender, uuid, message
 
         def unpack_write(msg):
-            sender, _, message_dict = msg_unpack(msg)
-            uuid = list(message_dict.keys())[0]
+            sender, uuid, message_dict = msg_unpack(msg)
+
             if self.current_contact_name is not None and uuid == self.currently_opened_chat:
                 self.current_contact_name.set_text(sender)
-            self.add_msgs(message_dict)
+
+            self.add_msgs(message_dict, contact_id=uuid)
 
         if isinstance(message, list):
-            for nested_msg in message:
-                unpack_write(nested_msg)
+            for nested_msg in message: unpack_write(nested_msg)
 
-        else: 
-            unpack_write(message)
+        else:  unpack_write(message)
 
         if self.loop is not None: self.loop.draw_screen()
 
@@ -252,6 +314,7 @@ To continue, please fill these fields
             ui.Columns([
                 ui.Text("Chat stuff) "),
                 self.chat_button,
+                self.add_friend_button,
                 ]),
 
             ui.Divider("-"),
@@ -307,7 +370,6 @@ To continue, please fill these fields
 
 
     def draw_chatbox(self, uuid, name, button):
-        new_chat = uuid
         if self.debug_mode:
             self.debug_dissect_type(name)
 
@@ -327,7 +389,7 @@ To continue, please fill these fields
         self.draw_message_list(uuid)
     
     def create_contact(self, contact_id, contact_name):
-        if contact_id not in self.already_made_buttons:
+        if contact_id not in self.already_made_buttons.keys():
             button = ui.Button(contact_name)
             if self.debug_mode:
                 self.debug_dissect_type(contact_name)
@@ -335,7 +397,7 @@ To continue, please fill these fields
                               self.draw_chatbox, 
                               user_args=[contact_id, contact_name])
 
-            self.already_made_buttons.add(contact_id)
+            self.already_made_buttons[contact_id] = contact_name
 
             self.contact_list.append(button)
 
@@ -377,32 +439,26 @@ To continue, please fill these fields
                         interface.add_msgs(message_dict,
                                            skip_check=True,
                                            contact_id=interface.currently_opened_chat)
-                        callback_method(message_dict)
+                        pos = len(interface.currently_sending_msg)-1
+                        callback_method(message_dict, pos)
                         text_box.set_edit_text("")
 
 
         def generate_buttons():
             for contact_id, stuff in self.messages.items():
                 if contact_id != self.main_obj.data["uuid"]:
-                    chat_len = len(stuff)-1
-                    while True:
-                        if stuff[chat_len].get(contact_id) is None:
-                            if chat_len == 0: break
-                            chat_len -= 1
-                            continue
-                        else:
-                            contact_name = stuff[chat_len][contact_id].get("sender")
-                            self.create_contact(contact_id, contact_name)
-                            break
+                    contact_name = self.already_made_buttons[contact_id]
+                    self.create_contact(contact_id, contact_name)
 
         generate_buttons()
-        try:
-            default_start = self.messages[uuid][-1]
-            self.current_contact_name = ui.Text(default_start[uuid].get("sender"))
-        except (KeyError, IndexError):
+        if self.currently_opened_chat is not None and self.currently_opened_chat != self.main_obj.data["uuid"]:
+            self.current_contact_name = ui.Text(self.already_made_buttons[self.currently_opened_chat])
+            self.draw_chatbox(uuid, self.current_contact_name.get_text()[0], "")
+
+        else:
             self.current_contact_name = ui.Text("No chat currently open!")
-        self.draw_chatbox("",uuid, self.current_contact_name.get_text()[0])
-        self.currently_opened_chat = uuid
+            self.draw_chatbox(uuid, self.current_contact_name.get_text()[0], "")
+            self.currently_opened_chat = uuid
 
         menu = ui.Columns([
             ("given",20,ui.LineBox(self.contact_buttons),),
