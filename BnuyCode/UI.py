@@ -350,10 +350,11 @@ To continue, please fill these fields
         if self.messages.get(uuid) is None:
             return
         for message_metadata in self.messages.get(uuid):
-            sender = message_metadata[uuid].get("sender")
-            content = message_metadata[uuid].get("content")
-            id = message_metadata[uuid].get("id")
-            
+            user_id = list(message_metadata.keys())[0]
+            sender = message_metadata[user_id].get("sender")
+            content = message_metadata[user_id].get("content")
+            id = message_metadata[user_id].get("id")
+
             messages_by_id = self.message_ids.get(uuid)
 
             if messages_by_id is None or id not in messages_by_id:

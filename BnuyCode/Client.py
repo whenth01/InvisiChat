@@ -6,6 +6,8 @@ import threading
 from . import Server
 from . import UI
 
+class NoContactOpen(exception): pass
+
 class ClientSide():
     def __init__(self):
         self.ui = UI.Interface(self)
@@ -52,13 +54,22 @@ class ClientSide():
         try:
             self.sending_post = True
             self.ui.loop.draw_screen()
-            resp = requests.post(self.data["receiver"], json=message_dict, timeout=5)
+
+            if self.ui.currently_opened_chat != self.data["uuid"]:
+                peer = self.ui.contact_ips[self.ui.currently_opened_chat]
+                resp = requests.post(peer, json=message_dict, timeout=5)
+            else: raise NoContactOpen
+
             self.ui.currently_sending_msg[pos].set_attr_map({None: "default"})
             self.sending_post = False
 
-        except requests.ConnectionError: 
+        except (requests.ConnectionError,
+                requests.exceptions.InvalidURL,
+                requests.exceptions.InvalidSchema):
             self.ui.currently_sending_msg[pos].set_attr_map({None: "err"})
         except requests.Timeout:
+            self.ui.currently_sending_msg[pos].set_attr_map({None: "err"})
+        except NoContactOpen:
             self.ui.currently_sending_msg[pos].set_attr_map({None: "err"})
 
         finally: 
