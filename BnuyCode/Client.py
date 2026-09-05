@@ -6,7 +6,7 @@ import threading
 from . import Server
 from . import UI
 
-class NoContactOpen(exception): pass
+class NoContactOpen(Exception): pass
 
 class ClientSide():
     def __init__(self):
