@@ -263,7 +263,7 @@ class Interface():
 
 
         form = ui.Pile([
-            ui.LineBox(ui.Text("""Welcome to TermChat! :3
+            ui.LineBox(ui.Text("""Welcome to InvisiChat! :3
 To continue, please fill these fields
 (Note: Your DNS/IP and password are stored on-device and encrypted.)""")),
 
@@ -323,7 +323,7 @@ To continue, please fill these fields
 
         main = ui.Frame(
                 ui.LineBox(buttons),
-                header=ui.Text("Welcome back to TermChat!:3"),
+                header=ui.Text("Welcome back to InvisiChat!:3"),
                 footer=ui.LineBox(ui.Text(f"Version) {version}")),
                 focus_part="body",
                 )
@@ -386,7 +386,7 @@ To continue, please fill these fields
         if isinstance(self.current_contact_name, ui.Text):
             self.current_contact_name.set_text(name)
         else:
-            self.current_contact_name = ui.Text(name)
+            self.current_contact_name = ui.Text(name, align="center")
         self.draw_message_list(uuid)
     
     def create_contact(self, contact_id, contact_name):
@@ -453,11 +453,11 @@ To continue, please fill these fields
 
         generate_buttons()
         if self.currently_opened_chat is not None and self.currently_opened_chat != self.main_obj.data["uuid"]:
-            self.current_contact_name = ui.Text(self.already_made_buttons[self.currently_opened_chat])
+            self.current_contact_name = ui.Text(self.already_made_buttons[self.currently_opened_chat], align="center")
             self.draw_chatbox(uuid, self.current_contact_name.get_text()[0], "")
 
         else:
-            self.current_contact_name = ui.Text("No chat currently open!")
+            self.current_contact_name = ui.Text("No chat currently open!", align="center")
             self.draw_chatbox(uuid, self.current_contact_name.get_text()[0], "")
             self.currently_opened_chat = uuid
 
