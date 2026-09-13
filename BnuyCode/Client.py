@@ -3,8 +3,9 @@ import time
 import uuid
 import requests
 import threading
-from . import Server
 from . import UI
+from . import Server
+from . import BnuuyCrypt
 
 class NoContactOpen(Exception): pass
 
@@ -18,6 +19,8 @@ class ClientSide():
         self.background_receiver = threading.Thread(target=Server.handshake,
                                     args=(self.ui,),
                                     daemon=True)
+
+        self.msg_crypt = BnuuyCrypt.MessageCrypt()
 
         self.data = {
                 "receiver": None,
@@ -57,6 +60,10 @@ class ClientSide():
 
             if self.ui.currently_opened_chat != self.data["uuid"]:
                 peer = self.ui.contact_ips[self.ui.currently_opened_chat]
+                message_dict = self.msg_crypt.simple_encrypt_msg(message_dict,
+                                                                 self.ui.currently_opened_chat,
+                                                                 self.data["uuid"]
+                                                                 )
                 resp = requests.post(peer, json=message_dict, timeout=5)
             else: raise NoContactOpen
 
@@ -65,11 +72,13 @@ class ClientSide():
 
         except (requests.ConnectionError,
                 requests.exceptions.InvalidURL,
-                requests.exceptions.InvalidSchema):
+                requests.exceptions.InvalidSchema,
+                requests.Timeout,
+                NoContactOpen,):
             self.ui.currently_sending_msg[pos].set_attr_map({None: "err"})
-        except requests.Timeout:
+        except BnuuyCrypt.BadCallOrder:
             self.ui.currently_sending_msg[pos].set_attr_map({None: "err"})
-        except NoContactOpen:
+        except KeyError:
             self.ui.currently_sending_msg[pos].set_attr_map({None: "err"})
 
         finally: 
