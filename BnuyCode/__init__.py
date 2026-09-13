@@ -1,6 +1,6 @@
 import sys
 import urwid
-version = "V1.0.24 test build"
+version = "DEBUG TEST BUILD"
 
 def bnuy_except_hook(exctype, value, traceback):
     """Custom messages for exceptions"""
@@ -9,10 +9,10 @@ def bnuy_except_hook(exctype, value, traceback):
         sys.exit()
 
     elif exctype == urwid.widget.widget.WidgetError:
-        print("TermChat encountered a WidgetError")
+        print("InvisiChat encountered a WidgetError whilst rendering the UI")
         print("Your terminal may be too small! :(")
         sys.exit()
-    
+
     else:
         sys.__excepthook__(exctype, value, traceback)
 
