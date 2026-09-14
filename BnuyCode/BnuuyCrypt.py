@@ -171,7 +171,7 @@ BnuuyCrypt.simple_contact_signature""")
         ct = b64encode(ct_bytes).decode('utf-8')
         return {'iv':iv, 'ciphertext':ct}
 
-    def msg_decrypt(self, message, uuid):
+    def msg_decrypt(self, message, uuid, return_bytes=False):
         try: key_dict = self.shared_keys[uuid]
         except KeyError:
             raise BadCallOrder("UUID is unsaved! Please call BnuuyCrypt.simple_contact_signature")
@@ -184,13 +184,18 @@ BnuuyCrypt.simple_contact_signature""")
             hmac_key = self.shared_keys[uuid]["hmac_key"]
             ct_bytes = self.get_byte(msg_dict["ciphertext"])
             expected_digest = HMAC.new(hmac_key, msg=ct_bytes, digestmod=SHA256).hexdigest()
+
             if not hmac.compare_digest(expected_digest, msg_dict["ct_hash"]):
                 raise ValueError("HMAC hash doesnt match! Data was likely changed during transport.")
             iv = b64decode(msg_dict['iv'])
             ct = b64decode(msg_dict['ciphertext'])
             cipher = AES.new(enc_key, AES.MODE_CBC, iv)
 
-            return unpad(cipher.decrypt(ct), AES.block_size)
+            if return_bytes: return unpad(cipher.decrypt(ct), AES.block_size)
+
+            decrypted_bytes = unpad(cipher.decrypt(ct), AES.block_size)
+            return json.loads(decrypted_bytes)
+
         except (ValueError, KeyError):
             raise BadParameter("Failed to decrypt!:(")
 

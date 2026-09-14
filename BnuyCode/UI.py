@@ -133,6 +133,7 @@ class Interface():
             self.loop.start()
 
     def add_msgs(self, message_dict, skip_check=False, contact_id=None):
+        # NOTE: A contact_id should be passed!!
         uuid = list(message_dict.keys())[0]
         sender = message_dict[uuid]["sender"]
         content = message_dict[uuid]["content"]
@@ -149,11 +150,6 @@ class Interface():
             if uuid != self.main_obj.data["uuid"]:
                 self.create_contact(contact_id, sender)
             init_message_db(contact_id)
-
-        elif self.messages.get(uuid) is None:
-            if uuid != self.main_obj.data["uuid"]:
-                self.create_contact(uuid, sender)
-            init_message_db(uuid)
 
         msg_id = message_dict[uuid]["id"]
 
@@ -206,10 +202,19 @@ class Interface():
 
             self.add_msgs(message_dict, contact_id=uuid)
 
-        if isinstance(message, list):
-            for nested_msg in message: unpack_write(nested_msg)
+        def prep_msg(message):
+            return json.dumps(message), message.get("uuid")
 
-        else:  unpack_write(message)
+        if isinstance(message, list):
+            for nested_msg in message:
+                msg, uuid = prep_msg(nested_msg)
+                nested_msg = self.main_obj.msg_crypt.msg_decrypt(msg, uuid)
+                unpack_write(nested_msg)
+
+        else:
+            msg, uuid = prep_msg(message)
+            message = self.main_obj.msg_crypt.msg_decrypt(msg, uuid)
+            unpack_write(message)
 
         if self.loop is not None: self.loop.draw_screen()
 
@@ -375,12 +380,14 @@ To continue, please fill these fields
             self.debug_dissect_type(name)
 
         if self.chats.get(uuid) is not None:
+            self.save_chat(self.currently_opened_chat)
             self.message_list = self.chats.get(uuid)
             self.message_view.body = self.message_list
 
         else: 
-            self.save_chat(self.currently_opened_chat)
-            self.message_list.clear()
+            if self.currently_opened_chat is not None:
+                self.save_chat(self.currently_opened_chat)
+                self.message_list.clear()
 
         self.currently_opened_chat = uuid
         if isinstance(self.current_contact_name, ui.Text):

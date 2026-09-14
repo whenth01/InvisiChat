@@ -26,8 +26,6 @@ def message_receive(ui):
     @app.route("/message", methods=["POST"])
     def get_msg():
         data = request.get_json(silent=True, force=True)
-        if ui.debug_mode:
-            ui.debug_dissector(data)
         if data is None:
             return jsonify({"status": "unknown POST request"}), 404
         elif not isinstance(data, dict):
