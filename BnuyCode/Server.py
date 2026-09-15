@@ -93,14 +93,15 @@ def friend_handshake(info):
     status.set_text("Attempting connection!...")
     status_map.set_attr_map({None: "lgrey_txt"})
     link = contact_ip.get_edit_text()
+    params = {"pub_key": msg_crypt.public_key,
+              "uuid": interface.main_obj.data["uuid"],
+              "name": interface.main_obj.data["sender"],
+              "port": interface.main_obj.data["port"],
+              "ip": interface.main_obj.data["receiver"]
+              }
     try:
         resp = requests.get(f"http://{link}:8009/friend_handshake",
-                    params={"pub_key": msg_crypt.public_key,
-                        "uuid": interface.main_obj.data["uuid"],
-                        "name": interface.main_obj.data["sender"],
-                        "port": interface.main_obj.data["port"],
-                        "ip": interface.main_obj.data["receiver"],
-                    },
+                    params=params,
                     timeout=5,)
         if resp.status_code == 200:
             resp = resp.json()

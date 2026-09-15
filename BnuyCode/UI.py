@@ -1,4 +1,5 @@
 from __future__ import annotations
+from time import gmtime, strftime
 import sys
 import json
 import uuid as id_gen
@@ -340,11 +341,12 @@ To continue, please fill these fields
 
     def draw_message(self, sender, content):
         message = ui.Pile([
-                ui.Text(f"{sender})"),
                 ui.Divider("-"),
+                ui.Text(f"{sender})"),
                 ui.Text(content),
                 ui.Divider("-"),
-                ui.Text("")
+                ui.Text(f"{strftime("%Y-%m-%d %H:%M:%S", gmtime())}"),
+                ui.Divider("-"),
             ])
         return message
 

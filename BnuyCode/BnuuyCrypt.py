@@ -152,6 +152,8 @@ BnuuyCrypt.simple_contact_signature""")
         try: hash = HMAC.new(key_dict["hmac_key"], msg=message, digestmod=SHA256)
         except KeyError:
             raise BadCallOrder("Key 'hmac_key' doesnt exist in self.shared_keys, please call BnuuyCrypt.save_to_keys before BnuuyCrypt.msg_fingerprint!")
+        except TypeError:
+            raise BadParameter("BnuuyCrypt.msg_fingerprint expected Bytes or str!")
 
         return hash.hexdigest()
 
