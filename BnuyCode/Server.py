@@ -1,10 +1,9 @@
 import os
 import json
-import time
+import hmac
 import logging
 import requests
 import flask.cli
-from . import UI
 from . import BnuuyCrypt
 from flask import Flask, request, jsonify
 
@@ -57,19 +56,72 @@ def handshake(ui):
     def data_sender():
         try: pub_key = int(request.args.get("pub_key"))
         except (ValueError, TypeError):
-            return jsonify({"status": "failure", "reason": "Received a non int public key"}), 404 
+            return jsonify({"status": "failure",
+                            "reason": "Received a non int public key"}), 404
+        try:
+            hashes = json.loads(request.args.get("hashes"))
+        except (ValueError, TypeError, UnicodeDecodeError):
+            return jsonify({"status": "failure",
+                            "reason": "Received malformed hashes"}), 404
         uuid = request.args.get("uuid")
         name = request.args.get("name")
         ip = request.args.get("ip")
 
+        # note: im not sure how this even works
+        selected_authkey = None
+        found_hash = False
+        def compare_digests(key, auth_key, pub_key, hash):
+            expected_digest = msg_crypt.msg_fingerprint(
+                    msg_crypt.get_byte(request.args.get(key)),
+                    msg_crypt.get_byte(10),
+                    None,
+                    special_key=auth_key,
+                    salt=msg_crypt.get_byte(pub_key))
+            return hmac.compare_digest(expected_digest, hash)
+
+        try:
+            for key, hash in hashes.items():
+                found_hash = False
+
+                if selected_authkey is not None:
+                    if compare_digests(key, auth_key, pub_key, hash):
+                        found_hash = True
+
+                else:
+                    for auth_key in ui.key_list:
+                        if compare_digests(key, auth_key, pub_key, hash):
+                            found_hash = True
+                            selected_authkey = auth_key
+                            break
+
+                if found_hash: continue
+                else: break
+        except (KeyError, TypeError, BnuuyCrypt.BadParameter):
+            return jsonify({"status": "failure",
+                            "reason": "A key is missing from the handshake's internals, try updating InvisiChat"}), 404
+        except AttributeError:
+            # someone may be lingering is just a troll btw :3c
+            return jsonify({"status": "failure",
+                            "reason": "Invalid data type was sent to the contact, someone may be lingering."}), 404
+
+        if found_hash is False:
+            return jsonify({"status": "failure",
+                            "reason": "Wrong auth key, or the handshake was modified in transit!"}), 404
+        data = {"remove_authkey": selected_authkey}
+        os.write(ui.write_fd, json.dumps(data).encode())
+
+
         if uuid not in ui.messages.keys():
-            try: msg_crypt.simple_contact_signature(uuid, pub_key)
+            try: 
+                msg_crypt.simple_contact_signature(uuid, pub_key)
+                contact_init = {"save_new_contact": [ip, uuid, name]}
+                os.write(ui.write_fd, json.dumps(contact_init).encode())
             except BnuuyCrypt.WeakEncryptor:
-                return jsonify({"status": "failure", "reason": "Received a unsecure public key"}), 404 
-            ui.contact_ips[uuid] = ip
-            ui.message_ids[uuid] = set()
-            ui.messages[uuid] = []
-            ui.create_contact(uuid, name)
+                return jsonify({"status": "failure", 
+                                "reason": "Received a unsecure public key"}), 404 
+            except BnuuyCrypt.AlreadySavedUUID:
+                return jsonify({"status": "failure",
+                                "reason": "This user is already saved!"}), 404
 
         data = {"pub_key": msg_crypt.public_key,
                 "uuid": ui.main_obj.data["uuid"],
@@ -89,17 +141,28 @@ def friend_handshake(info):
     status_map = info.get("status_map")
     status = info.get("status")
     contact_ip = info.get("link")
+    auth_key = info.get("authkey")
 
     status.set_text("Attempting connection!...")
     status_map.set_attr_map({None: "lgrey_txt"})
     link = contact_ip.get_edit_text()
+    auth_key = auth_key.get_edit_text()
     params = {"pub_key": msg_crypt.public_key,
               "uuid": interface.main_obj.data["uuid"],
               "name": interface.main_obj.data["sender"],
               "port": interface.main_obj.data["port"],
-              "ip": interface.main_obj.data["receiver"]
+              "ip": interface.main_obj.data["receiver"],
+              "hashes": {}
               }
+    for key, data in params.items():
+        if key == "hashes": continue
+        params["hashes"][key] = msg_crypt.msg_fingerprint(msg_crypt.get_byte(data),
+                                                          msg_crypt.get_byte(10),
+                                                          None,
+                                                          special_key=auth_key,
+                                                          salt=msg_crypt.public_key,)
     try:
+        params["hashes"] = json.dumps(params.get("hashes"))
         resp = requests.get(f"http://{link}:8009/friend_handshake",
                     params=params,
                     timeout=5,)
@@ -111,15 +174,19 @@ def friend_handshake(info):
 
             if resp.get("uuid") not in interface.messages.keys():
                 try:
-                    msg_crypt.simple_contact_signature(resp["uuid"], resp["pub_key"])
+                    msg_crypt.simple_contact_signature(resp.get("uuid"), resp.get("pub_key"))
                 except BnuuyCrypt.WeakEncryptor:
                     page_class.upd_status("404. This user returned a unsecure public key! cancelling..", "err")
                     return None
-                interface.message_ids[resp.get("uuid")] = set()
-                interface.messages[resp.get("uuid")] = []
-                interface.contact_ips[resp.get("uuid")] = resp.get("ip")
+                except BnuuyCrypt.AlreadySavedUUID:
+                    page_class.upd_status("This user is already in your contact list!", "err")
+                    return None
+                contact_init = {"save_new_contact": [resp.get("ip"),
+                                                     resp.get("uuid"),
+                                                     resp.get("name")
+                                                     ]}
+                os.write(ui.write_fd, json.dumps(contact_init).encode())
 
-                interface.create_contact(resp.get("uuid"), resp.get("name"))
         elif resp.status_code == 404:
             resp = resp.json()
             reason = resp.get("reason")

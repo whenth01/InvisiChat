@@ -1,13 +1,14 @@
 from __future__ import annotations
-from time import gmtime, strftime
 import sys
 import json
-import uuid as id_gen
 import time
-import urwid as ui
 import requests
+import threading
+import urwid as ui
 from . import Server
-
+import uuid as id_gen
+from time import gmtime, strftime
+# fuck you annotations for breaking my import style
 
 class Interface():
     def __init__(self, main_obj):
@@ -26,12 +27,14 @@ class Interface():
         self.add_friend_button = ui.Button("Add a new friend")
         self.back_button = ui.Button("Back")
         self.debug_button = ui.Button("Debug mode")
+        self.gen_authkey_button = ui.Button("Generate a new one-time auth key")
 
         ui.connect_signal(self.exit_button, "click", self.stop_program)
         ui.connect_signal(self.chat_button, "click", self.main_obj.send_msg)
         ui.connect_signal(self.add_friend_button, "click", self.add_friend)
         ui.connect_signal(self.back_button, "click", self.go_to_mainmenu)
         ui.connect_signal(self.debug_button, "click", self.debug_switch)
+        ui.connect_signal(self.gen_authkey_button, "click", self.authkey_gen)
 
         #### COLORS
         self.palette = [
@@ -67,21 +70,42 @@ class Interface():
         # should be list of AttrMap
         self.currently_sending_msg = list()
 
+        #### HANDSHAKE KEYS
+        self.key_list = ui.SimpleFocusListWalker([])
+        self.key_listbox = ui.ListBox(self.key_list)
+
+    def authkey_gen(self, button):
+        key = self.main_obj.rand_gen.rand_key(wordlist_gen=True,
+                                       wordlist_file="BnuyCode/eff_large_wordlist.txt")
+        self.key_list.append(ui.Text(key))
+
     def add_friend(self, button):
         contact_ip = ui.Edit(">>> ")
-        status = ui.Text("")
+        contact_authkey = ui.Edit(">>> ")
+        status = ui.Text("", align="center")
         status_map = ui.AttrMap(status, "clr_err")
         interface = self
 
         menu = ui.Pile([
-            ui.Text("Please enter an IP."),
+            ui.Text("Your auth keys", align="center"),
+            ui.BoxAdapter(ui.LineBox(self.key_listbox), 15),
+            ui.Divider("-"),
+            ui.Text("Please enter the contact's IP or DNS."),
             contact_ip,
             ui.Divider("-"),
+            ui.Text("Enter the contact's auth key. (not your own!)"),
+            contact_authkey,
+            ui.Divider("-"),
+            ui.Columns([
+                self.back_button,
+                self.gen_authkey_button,
+                ]),
             ])
 
-        buttons = ui.Columns([
-            self.back_button
-            ])
+        #buttons = ui.Columns([
+        #    self.back_button,
+        #    self.gen_authkey_button,
+        #    ])
 
         class Page(ui.Frame):
             def upd_status(self, txt, map):
@@ -89,12 +113,18 @@ class Interface():
                 status_map.set_attr_map({None: map})
 
             def keypress(self, size, key):
-                if key != "enter": 
+                if interface.debug_mode:
+                    interface.debug_dissect_type(menu.get_focus_path())
+
+                if key != "enter":
                     return super().keypress(size, key)
 
-                else:
+                elif key == "ent":
+                    self.upd_status("Attempting connection.. Please wait!", "default")
+                    interface.loop.draw_screen()
                     info = {
                         "link": contact_ip,
+                        "authkey": contact_authkey,
                         "status": status,
                         "status_map": status_map,
                         "page_class": self,
@@ -102,10 +132,10 @@ class Interface():
                         }
                     Server.friend_handshake(info)
 
-
         form = Page(ui.LineBox(menu),
                         header=status_map,
-                        footer=ui.LineBox(buttons))
+                        #footer=ui.LineBox(buttons),
+                        focus_part="body")
 
         if self.loop is None: self.run_menu(form)
         else: self.loop.widget = form
@@ -187,6 +217,18 @@ class Interface():
     def callback(self, data: bytes) -> None:
         message = data.decode()
         message = json.loads(message)
+
+        if isinstance(message, dict) and "save_new_contact" in message.keys():
+            ip, uuid, name = message["save_new_contact"]
+            self.contact_ips[uuid] = ip
+            self.message_ids[uuid] = set()
+            self.messages[uuid] = []
+            self.create_contact(uuid, name)
+            self.loop.draw_screen()
+            return
+
+        elif isinstance(message, dict) and "remove_authkey" in message.keys():
+            self.key_list.remove(message.get("remove_authkey"))
 
         def msg_unpack(message):
             uuid = list(message.keys())[0]
@@ -345,7 +387,7 @@ To continue, please fill these fields
                 ui.Text(f"{sender})"),
                 ui.Text(content),
                 ui.Divider("-"),
-                ui.Text(f"{strftime("%Y-%m-%d %H:%M:%S", gmtime())}"),
+                ui.Text(strftime("%Y-%m-%d %H:%M:%S", gmtime())),
                 ui.Divider("-"),
             ])
         return message

@@ -21,6 +21,7 @@ class ClientSide():
                                     daemon=True)
 
         self.msg_crypt = BnuuyCrypt.MessageCrypt()
+        self.rand_gen = BnuuyCrypt.RandGenerators()
 
         self.data = {
                 "receiver": None,

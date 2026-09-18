@@ -72,7 +72,9 @@ BBE11757 7A615D6C 770988C0 BAD946E2 08E24FA0 74E5AB31
             message = json.dumps(message)
 
         cipher_dict = self.msg_encrypt(message, uuid)
-        ct_hash = self.msg_fingerprint(cipher_dict.get("ciphertext"), uuid)
+        ct_hash = self.msg_fingerprint(cipher_dict.get("ciphertext"),
+                                       self.get_byte(cipher_dict.get("iv")),
+                                       uuid)
         cipher_dict["ct_hash"] = ct_hash
         cipher_dict["uuid"] = sender_uuid
 
@@ -140,18 +142,29 @@ before using BnuuyCrypt.save_to_keys""")
 You can ovwrride this by adding force_save=True in the call""")
             else: self.shared_keys[uuid] = {"public_key": contact_public_key}
 
-    def msg_fingerprint(self, message, uuid):
+    def msg_fingerprint(self, message, iv, uuid, special_key=None, salt=None):
         """IMPORTANT NOTE!! this is to be used AFTER encryption and AFTER save_to_keys!!!"""
         if isinstance(message, str):
             message = self.get_byte(message)
+        if special_key is None:
+            try: 
+                key_dict = self.shared_keys[uuid]
+            except KeyError: raise BadCallOrder("""Entered UUID hasn't been saved! Please use MessageCrypt.simple_contact_signature""")
 
-        try: key_dict = self.shared_keys[uuid]
-        except KeyError: raise BadCallOrder("""Entered UUID hasn't been saved! Please use
-BnuuyCrypt.simple_contact_signature""")
+            try: key = key_dict["hmac_key"]
+            except KeyError:
+                raise BadCallOrder("Key 'hmac_key' doesnt exist in self.shared_keys, please call MessageCrypt.save_to_keys before BnuuyCrypt.msg_fingerprint!")
 
-        try: hash = HMAC.new(key_dict["hmac_key"], msg=message, digestmod=SHA256)
-        except KeyError:
-            raise BadCallOrder("Key 'hmac_key' doesnt exist in self.shared_keys, please call BnuuyCrypt.save_to_keys before BnuuyCrypt.msg_fingerprint!")
+
+        else: 
+            if not isinstance(special_key, bytes):
+                special_key = self.get_byte(special_key)
+            if not isinstance(salt, bytes):
+                salt = self.get_byte(salt)
+
+            key = KDF.scrypt(special_key, salt, 16, N=2**16, r=9, p=2)
+
+        try: hash = HMAC.new(key, msg=message+iv, digestmod=SHA256)
         except TypeError:
             raise BadParameter("BnuuyCrypt.msg_fingerprint expected Bytes or str!")
 
@@ -184,8 +197,9 @@ BnuuyCrypt.simple_contact_signature""")
         try:
             msg_dict = json.loads(message)
             hmac_key = self.shared_keys[uuid]["hmac_key"]
+            iv_bytes = self.get_byte(msg_dict["iv"])
             ct_bytes = self.get_byte(msg_dict["ciphertext"])
-            expected_digest = HMAC.new(hmac_key, msg=ct_bytes, digestmod=SHA256).hexdigest()
+            expected_digest = HMAC.new(hmac_key, msg=ct_bytes+iv_bytes, digestmod=SHA256).hexdigest()
 
             if not hmac.compare_digest(expected_digest, msg_dict["ct_hash"]):
                 raise ValueError("HMAC hash doesnt match! Data was likely changed during transport.")
@@ -198,7 +212,7 @@ BnuuyCrypt.simple_contact_signature""")
             decrypted_bytes = unpad(cipher.decrypt(ct), AES.block_size)
             return json.loads(decrypted_bytes)
 
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, TypeError):
             raise BadParameter("Failed to decrypt!:(")
 
     def comp_shared_key(self, public_key):
@@ -212,3 +226,31 @@ BnuuyCrypt.simple_contact_signature""")
         else:
             return pow(public_key, self.private_key, self.prime_key)
 
+
+
+class RandGenerators:
+    def __init__(self):
+        pass
+
+    def rand_key(self, wordlist_gen=False, wordlist_file=None, wordlist_len=4, key_bytes=32):
+        if wordlist_gen:
+            if wordlist_file is None: 
+                raise BadParameter("RandGenerators.rand_key requires a filepath/file in the wordlist_file arg when using wordlist mode!")
+            elif wordlist_len < 1:
+                raise BadParameter(f"wordlist_len should be > 1, got {wordlist_len}")
+            wordlist = []
+            try:
+                with open(wordlist_file) as f:
+                    words = [word.strip() for word in f]
+                    wordlist.extend(secrets.choice(words) for i in range(wordlist_len))
+                    wordlist = [word.split("\t")[1] for word in wordlist]
+                    return ' '.join(wordlist)
+
+            except (IndexError,
+                    OSError,
+                    TypeError,
+                    UnicodeDecodeError) as e:
+                raise ValueError(f"An error occurred while reading {wordlist_file}: {e}")
+
+        else:
+            return secrets.token_urlsafe(key_bytes)
