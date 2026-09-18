@@ -82,6 +82,7 @@ def handshake(ui):
         try:
             for key, hash in hashes.items():
                 found_hash = False
+                key = key.get_text()[0]
 
                 if selected_authkey is not None:
                     if compare_digests(key, auth_key, pub_key, hash):
