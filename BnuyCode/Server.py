@@ -82,7 +82,6 @@ def handshake(ui):
         try:
             for key, hash in hashes.items():
                 found_hash = False
-                key = key.get_text()[0]
 
                 if selected_authkey is not None:
                     if compare_digests(key, auth_key, pub_key, hash):
@@ -90,6 +89,7 @@ def handshake(ui):
 
                 else:
                     for auth_key in ui.key_list:
+                        auth_key = auth_key.get_text()[0]
                         if compare_digests(key, auth_key, pub_key, hash):
                             found_hash = True
                             selected_authkey = auth_key
@@ -97,7 +97,7 @@ def handshake(ui):
 
                 if found_hash: continue
                 else: break
-        except (KeyError, TypeError, BnuuyCrypt.BadParameter):
+        except (KeyError, TypeError, BnuuyCrypt.BadParameter) as e:
             return jsonify({"status": "failure",
                             "reason": "A key is missing from the handshake's internals, try updating InvisiChat"}), 404
         except AttributeError:
