@@ -119,7 +119,7 @@ class Interface():
                 if key != "enter":
                     return super().keypress(size, key)
 
-                elif key == "ent":
+                elif key == "enter":
                     self.upd_status("Attempting connection.. Please wait!", "default")
                     interface.loop.draw_screen()
                     info = {
