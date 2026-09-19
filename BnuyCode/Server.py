@@ -54,25 +54,26 @@ def handshake(ui):
     msg_crypt = ui.main_obj.msg_crypt
     @app.route("/friend_handshake", methods=["GET"])
     def data_sender():
-        try: pub_key = int(request.args.get("pub_key"))
+        param_dict = json.loads(request.args.get("parameters"))
+        try: pub_key = int(param_dict.get("pub_key"))
         except (ValueError, TypeError):
             return jsonify({"status": "failure",
                             "reason": "Received a non int public key"}), 404
         try:
-            hashes = json.loads(request.args.get("hashes"))
-        except (ValueError, TypeError, UnicodeDecodeError):
+            hash = param_dict.pop("hash")
+        except KeyError:
             return jsonify({"status": "failure",
-                            "reason": "Received malformed hashes"}), 404
-        uuid = request.args.get("uuid")
-        name = request.args.get("name")
-        ip = request.args.get("ip")
+                            "reason": "Didnt receive a fingerprint, unable to guarantee no tampering occurred."}), 404
+        uuid = param_dict.get("uuid")
+        name = param_dict.get("name")
+        ip = param_dict.get("ip")
 
         # note: im not sure how this even works
-        selected_authkey = None
+        pos_in_keylist = 0
         found_hash = False
-        def compare_digests(key, auth_key, pub_key, hash):
+        def compare_digests(received, auth_key, pub_key, hash):
             expected_digest = msg_crypt.msg_fingerprint(
-                    msg_crypt.get_byte(request.args.get(key)),
+                    msg_crypt.get_byte(json.dumps(received)),
                     msg_crypt.get_byte(10),
                     None,
                     special_key=auth_key,
@@ -80,24 +81,16 @@ def handshake(ui):
             return hmac.compare_digest(expected_digest, hash)
 
         try:
-            for key, hash in hashes.items():
-                found_hash = False
 
-                if selected_authkey is not None:
-                    if compare_digests(key, auth_key, pub_key, hash):
-                        found_hash = True
+            for auth_key in ui.key_list:
+                auth_key = auth_key.get_text()[0]
+                if compare_digests(param_dict, auth_key, pub_key, hash):
+                    found_hash = True
+                    break
+                else: 
+                    pos_in_keylist += 1
 
-                else:
-                    for auth_key in ui.key_list:
-                        auth_key = auth_key.get_text()[0]
-                        if compare_digests(key, auth_key, pub_key, hash):
-                            found_hash = True
-                            selected_authkey = auth_key
-                            break
-
-                if found_hash: continue
-                else: break
-        except (KeyError, TypeError, BnuuyCrypt.BadParameter) as e:
+        except (KeyError, TypeError, BnuuyCrypt.BadParameter):
             return jsonify({"status": "failure",
                             "reason": "A key is missing from the handshake's internals, try updating InvisiChat"}), 404
         except AttributeError:
@@ -108,7 +101,7 @@ def handshake(ui):
         if found_hash is False:
             return jsonify({"status": "failure",
                             "reason": "Wrong auth key, or the handshake was modified in transit!"}), 404
-        data = {"remove_authkey": selected_authkey}
+        data = {"remove_authkey": pos_in_keylist}
         os.write(ui.write_fd, json.dumps(data).encode())
 
 
@@ -153,19 +146,16 @@ def friend_handshake(info):
               "name": str(interface.main_obj.data["sender"]),
               "port": str(interface.main_obj.data["port"]),
               "ip": str(interface.main_obj.data["receiver"]),
-              "hashes": {}
               }
-    for key, data in params.items():
-        if key == "hashes": continue
-        params["hashes"][key] = msg_crypt.msg_fingerprint(msg_crypt.get_byte(data),
+    params["hash"] = str(msg_crypt.msg_fingerprint(msg_crypt.get_byte(json.dumps(params)),
                                                           msg_crypt.get_byte(10),
                                                           None,
                                                           special_key=auth_key,
-                                                          salt=msg_crypt.public_key,)
+                                                          salt=msg_crypt.public_key,))
+
     try:
-        params["hashes"] = json.dumps(params.get("hashes"))
         resp = requests.get(f"http://{link}:8009/friend_handshake",
-                    params=params,
+                    params={"parameters": json.dumps(params)},
                     timeout=5,)
         if resp.status_code == 200:
             resp = resp.json()

@@ -229,7 +229,9 @@ class Interface():
             return
 
         elif isinstance(message, dict) and "remove_authkey" in message.keys():
-            self.key_list.remove(message.get("remove_authkey"))
+            if self.debug_mode:
+                self.debug_dissect_type(message.get("remove_authkey"))
+            self.key_list.pop(message.get("remove_authkey"))
 
         def msg_unpack(message):
             uuid = list(message.keys())[0]

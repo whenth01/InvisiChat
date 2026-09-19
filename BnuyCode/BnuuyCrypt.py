@@ -168,7 +168,7 @@ You can ovwrride this by adding force_save=True in the call""")
             if not isinstance(salt, bytes):
                 salt = self.get_byte(salt)
 
-            key = KDF.scrypt(special_key, salt, 16, N=2**16, r=9, p=2)
+            key = KDF.HKDF(special_key, 32, salt, SHA256, 1)
 
         try: hash = HMAC.new(key, msg=message+iv, digestmod=SHA256)
         except TypeError:
