@@ -75,7 +75,13 @@ BBE11757 7A615D6C 770988C0 BAD946E2 08E24FA0 74E5AB31
         ct_hash = self.msg_fingerprint(cipher_dict.get("ciphertext"),
                                        self.get_byte(cipher_dict.get("iv")),
                                        uuid)
+
+        uuid_hash = self.msg_fingerprint(sender_uuid,
+                                         self.get_byte(cipher_dict.get("iv")),
+                                         uuid,)
+
         cipher_dict["ct_hash"] = ct_hash
+        cipher_dict["uuid_hash"] = uuid_hash
         cipher_dict["uuid"] = sender_uuid
 
         return cipher_dict
@@ -199,16 +205,28 @@ You can ovwrride this by adding force_save=True in the call""")
             hmac_key = self.shared_keys[uuid]["hmac_key"]
             iv_bytes = self.get_byte(msg_dict["iv"])
             ct_bytes = self.get_byte(msg_dict["ciphertext"])
-            expected_digest = HMAC.new(hmac_key, msg=ct_bytes+iv_bytes, digestmod=SHA256).hexdigest()
+            uuid_bytes = self.get_byte(msg_dict["uuid"])
+            expected_ct_digest = HMAC.new(hmac_key,
+                                          msg=ct_bytes+iv_bytes, 
+                                          digestmod=SHA256).hexdigest()
+            expected_uuid_digest = HMAC.new(hmac_key,
+                                            msg=uuid_bytes+iv_bytes,
+                                            digestmod=SHA256).hexdigest()
 
-            if not hmac.compare_digest(expected_digest, msg_dict["ct_hash"]):
+            ct_digest_check = hmac.compare_digest(expected_ct_digest,
+                                                  msg_dict["ct_hash"])
+            uuid_digest_check = hmac.compare_digest(expected_uuid_digest,
+                                                    msg_dict["uuid_hash"])
+
+            if not ct_digest_check or not uuid_digest_check:
                 raise ValueError("HMAC hash doesnt match! Data was likely changed during transport.")
+
             iv = b64decode(msg_dict['iv'])
             ct = b64decode(msg_dict['ciphertext'])
             cipher = AES.new(enc_key, AES.MODE_CBC, iv)
-
+            # msg dict but in bytes
             if return_bytes: return unpad(cipher.decrypt(ct), AES.block_size)
-
+            # full decrypted msg dict
             decrypted_bytes = unpad(cipher.decrypt(ct), AES.block_size)
             return json.loads(decrypted_bytes)
 

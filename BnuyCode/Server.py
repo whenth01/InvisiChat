@@ -148,11 +148,11 @@ def friend_handshake(info):
     status_map.set_attr_map({None: "lgrey_txt"})
     link = contact_ip.get_edit_text()
     auth_key = auth_key.get_edit_text()
-    params = {"pub_key": msg_crypt.public_key,
-              "uuid": interface.main_obj.data["uuid"],
-              "name": interface.main_obj.data["sender"],
-              "port": interface.main_obj.data["port"],
-              "ip": interface.main_obj.data["receiver"],
+    params = {"pub_key": str(msg_crypt.public_key),
+              "uuid": str(interface.main_obj.data["uuid"]),
+              "name": str(interface.main_obj.data["sender"]),
+              "port": str(interface.main_obj.data["port"]),
+              "ip": str(interface.main_obj.data["receiver"]),
               "hashes": {}
               }
     for key, data in params.items():
@@ -186,7 +186,7 @@ def friend_handshake(info):
                                                      resp.get("uuid"),
                                                      resp.get("name")
                                                      ]}
-                os.write(ui.write_fd, json.dumps(contact_init).encode())
+                os.write(interface.write_fd, json.dumps(contact_init).encode())
 
         elif resp.status_code == 404:
             resp = resp.json()

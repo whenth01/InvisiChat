@@ -7,6 +7,7 @@ import threading
 import urwid as ui
 from . import Server
 import uuid as id_gen
+from . import BnuuyCrypt
 from time import gmtime, strftime
 # fuck you annotations for breaking my import style
 
@@ -246,17 +247,24 @@ class Interface():
             self.add_msgs(message_dict, contact_id=uuid)
 
         def prep_msg(message):
-            return json.dumps(message), message.get("uuid")
+            return json.dumps(message), message.get("uuid"), message.get("pub_key")
 
         if isinstance(message, list):
             for nested_msg in message:
-                msg, uuid = prep_msg(nested_msg)
-                nested_msg = self.main_obj.msg_crypt.msg_decrypt(msg, uuid)
+                msg, uuid, pub_key = prep_msg(nested_msg)
+                try: nested_msg = self.main_obj.msg_crypt.msg_decrypt(msg, uuid)
+                except (BnuuyCrypt.BadCallOrder, BnuuyCrypt.BadParameter):
+                    # note, this should be updated to make a popup with a warning
+                    continue
                 unpack_write(nested_msg)
 
         else:
-            msg, uuid = prep_msg(message)
-            message = self.main_obj.msg_crypt.msg_decrypt(msg, uuid)
+            msg, uuid, pub_key = prep_msg(message)
+            try: message = self.main_obj.msg_crypt.msg_decrypt(msg, uuid)
+            except (BnuuyCrypt.BadCallOrder, BnuuyCrypt.BadParameter):
+                # same as above
+                return None
+
             unpack_write(message)
 
         if self.loop is not None: self.loop.draw_screen()
@@ -469,6 +477,8 @@ To continue, please fill these fields
         else:
             uuid = self.main_obj.data["uuid"]
 
+        msg_crypt = self.main_obj.msg_crypt
+
         class Page(ui.Frame):
             def keypress(self, size, key):
                 if key != "enter":
@@ -492,8 +502,8 @@ To continue, please fill these fields
                                            skip_check=True,
                                            contact_id=interface.currently_opened_chat)
                         pos = len(interface.currently_sending_msg)-1
-                        callback_method(message_dict, pos)
                         text_box.set_edit_text("")
+                        callback_method(message_dict, pos)
 
 
         def generate_buttons():
