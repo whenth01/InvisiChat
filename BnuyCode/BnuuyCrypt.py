@@ -56,13 +56,15 @@ BBE11757 7A615D6C 770988C0 BAD946E2 08E24FA0 74E5AB31
 
         self.shared_keys = dict()
 
-    def simple_contact_signature(self, uuid, contact_public_key, force_save=False):
+    def simple_contact_signature(self, uuid, contact_public_key, force_save=False, overwrite=None):
         secret_key = self.comp_shared_key(contact_public_key)
         if secret_key is None:
             if self.shared_keys.get(uuid) is None: pass
             elif "hmac_key" not in self.shared_keys[uuid].keys():
                 del self.shared_keys[uuid]
             raise WeakEncryptor("BnuuyCrypt.simple_contact_signature got a unsecure public_key!")
+        if overwrite is not None and overwrite in self.shared_keys.keys():
+            del self.shared_keys[overwrite]
 
         self.save_contact_key(uuid, contact_public_key, force_save=force_save)
         self.save_to_keys(uuid, secret_key, force_save=force_save)
@@ -201,7 +203,10 @@ You can ovwrride this by adding force_save=True in the call""")
             raise BadCallOrder("UUID's information is incomplete! Please call BnuuyCrypt.save_to_keys")
 
         try:
-            msg_dict = json.loads(message)
+            if not isinstance(message, dict):
+                msg_dict = json.loads(message)
+            else: 
+                msg_dict = message
             hmac_key = self.shared_keys[uuid]["hmac_key"]
             iv_bytes = self.get_byte(msg_dict["iv"])
             ct_bytes = self.get_byte(msg_dict["ciphertext"])
