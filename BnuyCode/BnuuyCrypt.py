@@ -1,6 +1,5 @@
-from Crypto.Util.Padding import unpad
+from Crypto.Util.Padding import unpad, pad
 from Crypto.Hash import HMAC, SHA256
-from Crypto.Util.Padding import pad
 from Crypto.Protocol import KDF
 from Crypto.Cipher import AES
 from base64 import b64encode
@@ -102,23 +101,21 @@ BBE11757 7A615D6C 770988C0 BAD946E2 08E24FA0 74E5AB31
                                        "expected": (int, str)})
 
     def get_int(self, call_site, value):
-        if isinstance(value, str):
-            value = value.encode()
         if isinstance(value, bytes):
             return int.from_bytes(value, "big")
         if isinstance(value, int):
             return value
         else:
-            raise BadParameter(f"""{call_site} expected int, bytes or str
+            raise BadParameter(f"""{call_site} expected int or bytes
 Received: {type(value)}""",
                     errors={"received": type(value),
-                            "expected": (int, bytes, str)})
+                            "expected": (int, bytes)})
 
     def save_to_keys(self, uuid, shared_key, force_save=False):
         # note: shared key should be the shared secret key
         try:
             if "hmac_key" in self.shared_keys[uuid].keys(): 
-                if not force_save: raise AlreadySavedUUID("UUID already saved! Call with force_save if you'd like to save anyway.")
+                if not force_save: raise AlreadySavedUUID("UUID already saved! Call with force_save if you'd like to save anyway.", {"alr_saved_uuid": uuid})
             shared_secret_bytes = self.get_byte(shared_key)
             combined_key = self.public_key + self.shared_keys[uuid]["public_key"]
         except KeyError:
@@ -182,6 +179,8 @@ You can ovwrride this by adding force_save=True in the call""")
         try: key_dict = self.shared_keys[uuid]
         except KeyError:
             raise BadCallOrder("UUID has not been saved by BnuuyCrypt yet!")
+        except TypeError:
+            raise BadParameter("Unhashable UUID! QwQ")
 
         try: key = key_dict["encrypt_key"]
         except KeyError:
@@ -198,6 +197,7 @@ You can ovwrride this by adding force_save=True in the call""")
         try: key_dict = self.shared_keys[uuid]
         except KeyError:
             raise BadCallOrder("UUID is unsaved! Please call BnuuyCrypt.simple_contact_signature")
+        except TypeError: raise BadCallOrder("Unhashable UUID!")
         try: enc_key = key_dict["encrypt_key"]
         except KeyError:
             raise BadCallOrder("UUID's information is incomplete! Please call BnuuyCrypt.save_to_keys")
@@ -260,7 +260,7 @@ class RandGenerators:
             if wordlist_file is None: 
                 raise BadParameter("RandGenerators.rand_key requires a filepath/file in the wordlist_file arg when using wordlist mode!")
             elif wordlist_len < 1:
-                raise BadParameter(f"wordlist_len should be > 1, got {wordlist_len}")
+                raise BadParameter(f"wordlist_len was less then 1, got {wordlist_len}")
             wordlist = []
             try:
                 with open(wordlist_file) as f:

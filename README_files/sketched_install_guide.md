@@ -1,15 +1,17 @@
 ***Please open an issue if a instruction is false/doesnt work!***
 ## Installing InvisiChat
+
+### Installing Python (pls skip if u already have it)
 Linux (Debian, Ubuntu)
 ```bash
 sudo apt update
-sudo apt install python3 python3-pip mpv
+sudo apt install python3 python3-pip
 ``` 
 
 Linux(Fedora)
 ```bash
 sudo dnf update
-sudo dnf install -y python3 python3-pip mpv
+sudo dnf install -y python3 python3-pip
 ```
 
 Linux (centOS)
@@ -50,6 +52,6 @@ cd invisichat
 ```
 (Assuming you have git installed)
 
-Current branches:
+Current git branches:
 dev (the stuff im currently working on)
 main (stable releases)

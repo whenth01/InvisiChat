@@ -2,6 +2,7 @@
 
 *NOTE: This also might work on other providers/a local network, i've only gotten to testing it on tailscale*
 ***IMPORTANT NOTE: This guide may or may not work! Only the android path has been tested and confirmed to work***
+***IMPORTANT NOTE 2.0: As of the test builds, do not try using InvisiChat on the open internet, it is currently not secure enough for that environment, Instead use it on something like Wireguard or Tailscale***
 ## Setting up TailScale
 1: Visit tailscale.com/download and get tailscale
 2: Log in/sign up
